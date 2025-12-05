@@ -1,0 +1,82 @@
+package views
+
+import (
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"main/internal/api"
+	"main/internal/domain"
+	"main/internal/ui/components"
+)
+
+type TimerView struct {
+	timerComponent    *components.TimerComponent
+	projectSelector   *components.ProjectSelectorComponent
+	showSelector      bool
+	width             int
+	height            int
+}
+
+func NewTimerView(timerState *domain.TimerState) *TimerView {
+	return &TimerView{
+		timerComponent:  components.NewTimerComponent(timerState),
+		projectSelector: components.NewProjectSelector(),
+		showSelector:    false,
+	}
+}
+
+func (v *TimerView) SetSize(width, height int) {
+	v.width = width
+	v.height = height
+	v.projectSelector.SetSize(width, height)
+}
+
+func (v *TimerView) SetProjects(projects []api.Project) {
+	v.projectSelector.SetProjects(projects)
+}
+
+func (v *TimerView) SetProjectMap(projects map[string]string) {
+	v.timerComponent.SetProjectMap(projects)
+}
+
+func (v *TimerView) ShowProjectSelector() {
+	v.showSelector = true
+}
+
+func (v *TimerView) HideProjectSelector() {
+	v.showSelector = false
+}
+
+func (v *TimerView) IsShowingSelector() bool {
+	return v.showSelector
+}
+
+func (v *TimerView) GetProjectSelector() *components.ProjectSelectorComponent {
+	return v.projectSelector
+}
+
+func (v *TimerView) Update(msg tea.Msg) (*TimerView, tea.Cmd) {
+	return v, nil
+}
+
+func (v *TimerView) View() string {
+	if v.showSelector {
+		return v.projectSelector.View()
+	}
+
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#7C3AED")).
+		MarginBottom(1)
+
+	mutedStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#6B7280"))
+
+	content := titleStyle.Render("⏱  Timer") + "\n\n"
+	content += v.timerComponent.View() + "\n\n"
+
+	if v.timerComponent.View() != "" {
+		content += mutedStyle.Render("s: start timer | x: stop timer | p: select project")
+	}
+
+	return content
+}
