@@ -98,6 +98,10 @@ func (c *Client) patch(path string, body interface{}, result interface{}) error 
 	return c.doRequest("PATCH", path, body, result)
 }
 
+func (c *Client) put(path string, body interface{}, result interface{}) error {
+	return c.doRequest("PUT", path, body, result)
+}
+
 func (c *Client) delete(path string) error {
 	return c.doRequest("DELETE", path, nil, nil)
 }

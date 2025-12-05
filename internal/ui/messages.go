@@ -66,3 +66,7 @@ type InitializedMsg struct {
 }
 
 type RefreshMsg struct{}
+
+type TimerDescriptionUpdatedMsg struct {
+	Entry *api.TimeEntry
+}

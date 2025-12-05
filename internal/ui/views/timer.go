@@ -54,6 +54,10 @@ func (v *TimerView) GetProjectSelector() *components.ProjectSelectorComponent {
 	return v.projectSelector
 }
 
+func (v *TimerView) GetTimerComponent() *components.TimerComponent {
+	return v.timerComponent
+}
+
 func (v *TimerView) Update(msg tea.Msg) (*TimerView, tea.Cmd) {
 	return v, nil
 }
@@ -75,7 +79,12 @@ func (v *TimerView) View() string {
 	content += v.timerComponent.View() + "\n\n"
 
 	if v.timerComponent.View() != "" {
-		content += mutedStyle.Render("s: start timer | x: stop timer | p: select project")
+		helpText := "s: start timer"
+		if v.timerComponent.IsRunning() {
+			helpText += " | x: stop timer | d: edit description"
+		}
+		helpText += " | p: select project"
+		content += mutedStyle.Render(helpText)
 	}
 
 	return content

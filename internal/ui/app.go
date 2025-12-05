@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -91,8 +92,13 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		if m.currentView == TimerView && m.timerView.IsShowingSelector() {
-			return m.handleSelectorKeys(msg)
+		if m.currentView == TimerView {
+			if m.timerView.IsShowingSelector() {
+				return m.handleSelectorKeys(msg)
+			}
+			if m.timerView.GetTimerComponent().IsEditingDescription() {
+				return m.handleDescriptionEditKeys(msg)
+			}
 		}
 
 		switch {
@@ -170,6 +176,17 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.timerView.ShowProjectSelector()
 				return m, nil
 			}
+
+		case key.Matches(msg, m.keys.EditDescription):
+			if m.currentView == TimerView {
+				if m.timerService.IsRunning {
+					m.timerView.GetTimerComponent().StartEditingDescription()
+					return m, nil
+				} else {
+					m.statusBar.SetInfo("No timer running to edit")
+					return m, nil
+				}
+			}
 		}
 
 	case TickMsg:
@@ -182,7 +199,13 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case TimerStoppedMsg:
 		m.timerService.Stop()
+		m.timerView.GetTimerComponent().ClearEditState()
 		m.statusBar.SetSuccess("Timer stopped")
+		return m, nil
+
+	case TimerDescriptionUpdatedMsg:
+		m.timerService.Description = msg.Entry.Description
+		m.statusBar.SetSuccess("Description updated")
 		return m, nil
 
 	case ProjectsLoadedMsg:
@@ -224,6 +247,37 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ErrorMsg:
 		m.statusBar.SetError(msg.Err)
+		return m, nil
+	}
+
+	return m, nil
+}
+
+func (m App) handleDescriptionEditKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	timerComp := m.timerView.GetTimerComponent()
+
+	switch msg.Type {
+	case tea.KeyEnter:
+		newDescription := timerComp.GetEditedDescription()
+		timerComp.CancelEditingDescription()
+		return m, m.updateTimerDescription(newDescription)
+
+	case tea.KeyBackspace:
+		timerComp.DeleteCharFromEdit()
+		return m, nil
+
+	case tea.KeyEsc:
+		timerComp.CancelEditingDescription()
+		return m, nil
+
+	case tea.KeySpace:
+		timerComp.AddCharToEdit(' ')
+		return m, nil
+
+	case tea.KeyRunes:
+		for _, r := range msg.Runes {
+			timerComp.AddCharToEdit(r)
+		}
 		return m, nil
 	}
 
@@ -402,6 +456,7 @@ func (m App) renderHelp() string {
 	helpContent += "  " + keyStyle.Render("s") + " " + descStyle.Render("Start timer (opens project selector)") + "\n"
 	helpContent += "  " + keyStyle.Render("x") + " " + descStyle.Render("Stop running timer") + "\n"
 	helpContent += "  " + keyStyle.Render("p") + " " + descStyle.Render("Select project/task") + "\n"
+	helpContent += "  " + keyStyle.Render("d") + " " + descStyle.Render("Edit description of running timer") + "\n"
 
 	helpContent += sectionStyle.Render("Time Entries View") + "\n"
 	helpContent += "  " + keyStyle.Render("↑/↓ or k/j") + " " + descStyle.Render("Navigate entries") + "\n"
@@ -500,6 +555,32 @@ func (m *App) stopTimer() tea.Msg {
 	}
 
 	return TimerStoppedMsg{Entry: entry}
+}
+
+func (m *App) updateTimerDescription(description string) tea.Cmd {
+	return func() tea.Msg {
+		if m.timerService.CurrentEntry == nil {
+			return ErrorMsg{Err: fmt.Errorf("no timer entry to update")}
+		}
+
+		entryID := m.timerService.CurrentEntry.ID
+		currentEntry := m.timerService.CurrentEntry
+
+		req := api.TimeEntryRequest{
+			Start:       currentEntry.TimeInterval.Start,
+			End:         currentEntry.TimeInterval.End,
+			Description: description,
+			ProjectID:   currentEntry.ProjectID,
+			TaskID:      currentEntry.TaskID,
+		}
+
+		entry, err := m.apiClient.UpdateTimeEntry(entryID, req)
+		if err != nil {
+			return ErrorMsg{Err: err}
+		}
+
+		return TimerDescriptionUpdatedMsg{Entry: entry}
+	}
 }
 
 func (m *App) loadEntries() tea.Cmd {

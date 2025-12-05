@@ -3,22 +3,23 @@ package ui
 import "github.com/charmbracelet/bubbles/key"
 
 type KeyMap struct {
-	SwitchToTimer   key.Binding
-	SwitchToEntries key.Binding
-	SwitchToReports key.Binding
-	StartTimer      key.Binding
-	StopTimer       key.Binding
-	SelectProject   key.Binding
-	Refresh         key.Binding
-	Quit            key.Binding
-	Up              key.Binding
-	Down            key.Binding
-	Left            key.Binding
-	Right           key.Binding
-	Enter           key.Binding
-	Back            key.Binding
-	Help            key.Binding
-	ToggleView      key.Binding
+	SwitchToTimer     key.Binding
+	SwitchToEntries   key.Binding
+	SwitchToReports   key.Binding
+	StartTimer        key.Binding
+	StopTimer         key.Binding
+	SelectProject     key.Binding
+	EditDescription   key.Binding
+	Refresh           key.Binding
+	Quit              key.Binding
+	Up                key.Binding
+	Down              key.Binding
+	Left              key.Binding
+	Right             key.Binding
+	Enter             key.Binding
+	Back              key.Binding
+	Help              key.Binding
+	ToggleView        key.Binding
 }
 
 func DefaultKeyMap() KeyMap {
@@ -46,6 +47,10 @@ func DefaultKeyMap() KeyMap {
 		SelectProject: key.NewBinding(
 			key.WithKeys("p"),
 			key.WithHelp("p", "select project"),
+		),
+		EditDescription: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "edit description"),
 		),
 		Refresh: key.NewBinding(
 			key.WithKeys("r"),

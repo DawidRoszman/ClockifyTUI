@@ -85,7 +85,7 @@ func (c *Client) UpdateTimeEntry(id string, entry TimeEntryRequest) (*TimeEntry,
 	path := fmt.Sprintf("/workspaces/%s/time-entries/%s", c.workspaceID, id)
 
 	var result TimeEntry
-	if err := c.patch(path, entry, &result); err != nil {
+	if err := c.put(path, entry, &result); err != nil {
 		return nil, fmt.Errorf("failed to update time entry: %w", err)
 	}
 

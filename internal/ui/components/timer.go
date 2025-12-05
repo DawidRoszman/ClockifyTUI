@@ -6,8 +6,10 @@ import (
 )
 
 type TimerComponent struct {
-	timerState *domain.TimerState
-	projects   map[string]string
+	timerState        *domain.TimerState
+	projects          map[string]string
+	editingDescription bool
+	editBuffer        string
 }
 
 var (
@@ -31,6 +33,47 @@ func (c *TimerComponent) SetProjectMap(projects map[string]string) {
 	c.projects = projects
 }
 
+func (c *TimerComponent) IsRunning() bool {
+	return c.timerState.IsRunning
+}
+
+func (c *TimerComponent) StartEditingDescription() {
+	if c.timerState.IsRunning {
+		c.editingDescription = true
+		c.editBuffer = c.timerState.Description
+	}
+}
+
+func (c *TimerComponent) IsEditingDescription() bool {
+	return c.editingDescription
+}
+
+func (c *TimerComponent) CancelEditingDescription() {
+	c.editingDescription = false
+	c.editBuffer = ""
+}
+
+func (c *TimerComponent) ClearEditState() {
+	c.editingDescription = false
+	c.editBuffer = ""
+}
+
+func (c *TimerComponent) GetEditedDescription() string {
+	return c.editBuffer
+}
+
+func (c *TimerComponent) AddCharToEdit(char rune) {
+	if c.editingDescription && len(c.editBuffer) < 255 {
+		c.editBuffer += string(char)
+	}
+}
+
+func (c *TimerComponent) DeleteCharFromEdit() {
+	if c.editingDescription && len(c.editBuffer) > 0 {
+		c.editBuffer = c.editBuffer[:len(c.editBuffer)-1]
+	}
+}
+
 func (c *TimerComponent) View() string {
 	if c.timerState.IsRunning {
 		return c.renderRunningTimer()
@@ -49,8 +92,21 @@ func (c *TimerComponent) renderRunningTimer() string {
 	content := statusStyle.Render("⏱ RUNNING") + "\n\n"
 	content += lipgloss.NewStyle().Bold(true).Render("Time: ") + durationStr + "\n"
 
-	if c.timerState.Description != "" {
-		content += lipgloss.NewStyle().Bold(true).Render("Description: ") + c.timerState.Description + "\n"
+	if c.editingDescription {
+		content += lipgloss.NewStyle().Bold(true).Render("Description: ") + "\n"
+
+		inputStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#10B981")).
+			Bold(true)
+
+		content += "  " + inputStyle.Render(c.editBuffer) + "█\n"
+		content += "\n" + lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B7280")).
+			Render("  enter: save | esc: cancel") + "\n"
+	} else {
+		if c.timerState.Description != "" {
+			content += lipgloss.NewStyle().Bold(true).Render("Description: ") + c.timerState.Description + "\n"
+		}
 	}
 
 	if c.timerState.ProjectID != nil {
