@@ -1,6 +1,8 @@
 # Clockify TUI
 
-A beautiful terminal user interface (TUI) for [Clockify](https://clockify.me) time tracking, built with Go and [Bubbletea](https://github.com/charmbracelet/bubbletea).
+A terminal user interface (TUI) for [Clockify](https://clockify.me) time tracking, built with Go and [Bubbletea](https://github.com/charmbracelet/bubbletea).
+
+<img width="898" height="548" alt="image" src="https://github.com/user-attachments/assets/02cf4596-09f0-4d8e-8b23-a6c649b5066a" />
 
 ## Features
 
@@ -16,11 +18,17 @@ A beautiful terminal user interface (TUI) for [Clockify](https://clockify.me) ti
 ### Timer View
 Start and stop timers with real-time duration tracking.
 
+<img width="805" height="531" alt="image" src="https://github.com/user-attachments/assets/b4d7dac0-9c55-45b6-a0ad-037afd127f72" />
+
 ### Time Entries View
 Browse through your time entries for today or the current week.
 
+<img width="795" height="792" alt="image" src="https://github.com/user-attachments/assets/c73b0fc2-e425-436c-ae42-7243c9c6ca74" />
+
 ### Reports View
 View daily and weekly summaries with visual breakdowns.
+
+<img width="795" height="673" alt="image" src="https://github.com/user-attachments/assets/2dafadaf-561c-4566-b4f5-bb86af9c9e78" />
 
 ## Installation
 
