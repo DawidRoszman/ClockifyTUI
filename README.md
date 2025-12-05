@@ -50,8 +50,8 @@ The application requires a Clockify API key to authenticate.
 ### Getting Your API Key
 
 1. Log in to [Clockify](https://clockify.me)
-2. Go to Settings → Profile
-3. Scroll down to find your API key
+2. Go to Preferences → Advanced
+3. Manage API keys
 4. Copy the API key
 
 ### Environment Variables
