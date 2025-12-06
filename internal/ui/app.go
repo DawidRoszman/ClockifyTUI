@@ -34,6 +34,7 @@ type App struct {
 
 	projects    []api.Project
 	entries     []api.TimeEntry
+	tags        []api.Tag
 	projectsMap map[string]string
 	tasksMap    map[string]string
 	tagsMap     map[string]string
@@ -210,7 +211,8 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case TimerDescriptionUpdatedMsg:
 		m.timerService.Description = msg.Entry.Description
-		m.statusBar.SetSuccess("Description updated")
+		m.timerService.TagIDs = msg.Entry.TagIDs
+		m.statusBar.SetSuccess("Description and tags updated")
 		return m, nil
 
 	case ProjectsLoadedMsg:
@@ -234,6 +236,7 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case TagsLoadedMsg:
+		m.tags = msg.Tags
 		tagMap := make(map[string]string)
 		for _, tag := range msg.Tags {
 			tagMap[tag.ID] = tag.Name
@@ -277,7 +280,14 @@ func (m App) handleDescriptionEditKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tea.KeyEnter:
 		newDescription := timerComp.GetEditedDescription()
 		timerComp.CancelEditingDescription()
-		return m, m.updateTimerDescription(newDescription)
+
+		currentTagIDs := []string{}
+		if m.timerService.CurrentEntry != nil {
+			currentTagIDs = m.timerService.CurrentEntry.TagIDs
+		}
+
+		m.timerView.ShowTagSelectorForEditing(newDescription, currentTagIDs, m.tags)
+		return m, nil
 
 	case tea.KeyBackspace:
 		timerComp.DeleteCharFromEdit()
@@ -319,17 +329,29 @@ func (m App) handleSelectorKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case key.Matches(msg, m.keys.Enter):
-			projectID, taskID, description, tagIDs := selector.ConfirmTags()
-			if projectID != nil {
+			if m.timerView.IsEditingMode() {
+				newDescription := m.timerView.GetEditedDescription()
+				newTagIDs := selector.GetSelectedTagIDs()
 				selector.Reset()
 				m.timerView.HideProjectSelector()
-				return m, m.startTimerWithTags(projectID, taskID, *description, tagIDs)
+				return m, m.updateTimerDescriptionAndTags(newDescription, newTagIDs)
+			} else {
+				projectID, taskID, description, tagIDs := selector.ConfirmTags()
+				if projectID != nil {
+					selector.Reset()
+					m.timerView.HideProjectSelector()
+					return m, m.startTimerWithTags(projectID, taskID, *description, tagIDs)
+				}
 			}
 			return m, nil
 
 		case key.Matches(msg, m.keys.Back):
-			if selector.Back() {
+			if m.timerView.IsEditingMode() {
 				m.timerView.HideProjectSelector()
+			} else {
+				if selector.Back() {
+					m.timerView.HideProjectSelector()
+				}
 			}
 			return m, nil
 		}
@@ -500,7 +522,7 @@ func (m App) renderHelp() string {
 	helpContent += "  " + keyStyle.Render("s") + " " + descStyle.Render("Start timer (opens project selector)") + "\n"
 	helpContent += "  " + keyStyle.Render("x") + " " + descStyle.Render("Stop running timer") + "\n"
 	helpContent += "  " + keyStyle.Render("p") + " " + descStyle.Render("Select project/task") + "\n"
-	helpContent += "  " + keyStyle.Render("d") + " " + descStyle.Render("Edit description of running timer") + "\n"
+	helpContent += "  " + keyStyle.Render("d") + " " + descStyle.Render("Edit description & tags of running timer") + "\n"
 
 	helpContent += sectionStyle.Render("Time Entries View") + "\n"
 	helpContent += "  " + keyStyle.Render("↑/↓ or k/j") + " " + descStyle.Render("Navigate entries") + "\n"
@@ -510,9 +532,10 @@ func (m App) renderHelp() string {
 	helpContent += "  " + keyStyle.Render("←/→ or h/l") + " " + descStyle.Render("Navigate dates (prev/next day or week)") + "\n"
 	helpContent += "  " + keyStyle.Render("t") + " " + descStyle.Render("Toggle between Daily/Weekly report") + "\n"
 
-	helpContent += sectionStyle.Render("Project/Task Selector") + "\n"
+	helpContent += sectionStyle.Render("Project/Task/Tag Selector") + "\n"
 	helpContent += "  " + keyStyle.Render("↑/↓ or k/j") + " " + descStyle.Render("Navigate list") + "\n"
-	helpContent += "  " + keyStyle.Render("Enter") + " " + descStyle.Render("Select item") + "\n"
+	helpContent += "  " + keyStyle.Render("Space") + " " + descStyle.Render("Toggle tag selection (when selecting tags)") + "\n"
+	helpContent += "  " + keyStyle.Render("Enter") + " " + descStyle.Render("Confirm selection") + "\n"
 	helpContent += "  " + keyStyle.Render("Esc") + " " + descStyle.Render("Go back or cancel") + "\n"
 
 	helpContent += "\n\n" + lipgloss.NewStyle().
@@ -621,6 +644,33 @@ func (m *App) updateTimerDescription(description string) tea.Cmd {
 			ProjectID:   currentEntry.ProjectID,
 			TaskID:      currentEntry.TaskID,
 			TagIDs:      currentEntry.TagIDs,
+		}
+
+		entry, err := m.apiClient.UpdateTimeEntry(entryID, req)
+		if err != nil {
+			return ErrorMsg{Err: err}
+		}
+
+		return TimerDescriptionUpdatedMsg{Entry: entry}
+	}
+}
+
+func (m *App) updateTimerDescriptionAndTags(description string, tagIDs []string) tea.Cmd {
+	return func() tea.Msg {
+		if m.timerService.CurrentEntry == nil {
+			return ErrorMsg{Err: fmt.Errorf("no timer entry to update")}
+		}
+
+		entryID := m.timerService.CurrentEntry.ID
+		currentEntry := m.timerService.CurrentEntry
+
+		req := api.TimeEntryRequest{
+			Start:       currentEntry.TimeInterval.Start,
+			End:         currentEntry.TimeInterval.End,
+			Description: description,
+			ProjectID:   currentEntry.ProjectID,
+			TaskID:      currentEntry.TaskID,
+			TagIDs:      tagIDs,
 		}
 
 		entry, err := m.apiClient.UpdateTimeEntry(entryID, req)

@@ -13,6 +13,8 @@ type TimerView struct {
 	timerComponent    *components.TimerComponent
 	projectSelector   *components.ProjectSelectorComponent
 	showSelector      bool
+	isEditingMode     bool
+	editedDescription string
 	width             int
 	height            int
 }
@@ -45,10 +47,29 @@ func (v *TimerView) SetTagMap(tags map[string]string) {
 
 func (v *TimerView) ShowProjectSelector() {
 	v.showSelector = true
+	v.isEditingMode = false
+	v.editedDescription = ""
+}
+
+func (v *TimerView) ShowTagSelectorForEditing(description string, currentTagIDs []string, allTags []api.Tag) {
+	v.showSelector = true
+	v.isEditingMode = true
+	v.editedDescription = description
+	v.projectSelector.SetTagsForEditing(currentTagIDs, allTags)
 }
 
 func (v *TimerView) HideProjectSelector() {
 	v.showSelector = false
+	v.isEditingMode = false
+	v.editedDescription = ""
+}
+
+func (v *TimerView) IsEditingMode() bool {
+	return v.isEditingMode
+}
+
+func (v *TimerView) GetEditedDescription() string {
+	return v.editedDescription
 }
 
 func (v *TimerView) IsShowingSelector() bool {
@@ -86,7 +107,7 @@ func (v *TimerView) View() string {
 	if v.timerComponent.View() != "" {
 		helpText := "s: start timer"
 		if v.timerComponent.IsRunning() {
-			helpText += " | x: stop timer | d: edit description"
+			helpText += " | x: stop timer | d: edit description & tags"
 		}
 		helpText += " | p: select project"
 		content += mutedStyle.Render(helpText)

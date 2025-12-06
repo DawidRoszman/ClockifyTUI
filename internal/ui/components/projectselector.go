@@ -76,6 +76,22 @@ func (c *ProjectSelectorComponent) SetTags(tags []api.Tag) {
 	c.currentTagCursor = 0
 }
 
+func (c *ProjectSelectorComponent) SetTagsForEditing(currentTagIDs []string, tags []api.Tag) {
+	c.tags = tags
+	c.selectedTags = make(map[int]bool)
+	c.currentTagCursor = 0
+	c.mode = SelectingTags
+
+	for i, tag := range c.tags {
+		for _, currentID := range currentTagIDs {
+			if tag.ID == currentID {
+				c.selectedTags[i] = true
+				break
+			}
+		}
+	}
+}
+
 func (c *ProjectSelectorComponent) SetSize(width, height int) {
 	c.width = width
 	c.height = height
@@ -186,6 +202,16 @@ func (c *ProjectSelectorComponent) ConfirmTags() (projectID, taskID, description
 	}
 
 	return &pid, tid, &desc, selectedTagIDs
+}
+
+func (c *ProjectSelectorComponent) GetSelectedTagIDs() []string {
+	var selectedTagIDs []string
+	for idx, selected := range c.selectedTags {
+		if selected && idx < len(c.tags) {
+			selectedTagIDs = append(selectedTagIDs, c.tags[idx].ID)
+		}
+	}
+	return selectedTagIDs
 }
 
 func (c *ProjectSelectorComponent) ConfirmDescription() (projectID, taskID, description *string) {
