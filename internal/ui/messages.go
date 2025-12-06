@@ -37,12 +37,12 @@ type TasksLoadedMsg struct {
 
 type DailyReportLoadedMsg struct {
 	Date   time.Time
-	Report interface{}
+	Report any
 }
 
 type WeeklyReportLoadedMsg struct {
 	StartDate time.Time
-	Report    interface{}
+	Report    any
 }
 
 type ErrorMsg struct {

@@ -43,7 +43,7 @@ func (c *Client) GetUserID() string {
 	return c.userID
 }
 
-func (c *Client) doRequest(method, path string, body interface{}, result interface{}) error {
+func (c *Client) doRequest(method, path string, body any, result any) error {
 	var reqBody io.Reader
 	if body != nil {
 		jsonData, err := json.Marshal(body)
@@ -86,19 +86,19 @@ func (c *Client) doRequest(method, path string, body interface{}, result interfa
 	return nil
 }
 
-func (c *Client) get(path string, result interface{}) error {
+func (c *Client) get(path string, result any) error {
 	return c.doRequest("GET", path, nil, result)
 }
 
-func (c *Client) post(path string, body interface{}, result interface{}) error {
+func (c *Client) post(path string, body any, result any) error {
 	return c.doRequest("POST", path, body, result)
 }
 
-func (c *Client) patch(path string, body interface{}, result interface{}) error {
+func (c *Client) patch(path string, body any, result any) error {
 	return c.doRequest("PATCH", path, body, result)
 }
 
-func (c *Client) put(path string, body interface{}, result interface{}) error {
+func (c *Client) put(path string, body any, result any) error {
 	return c.doRequest("PUT", path, body, result)
 }
 
