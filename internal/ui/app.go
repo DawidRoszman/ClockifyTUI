@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"main/internal/api"
 	"main/internal/cache"
 	"main/internal/domain"
 	"main/internal/ui/components"
 	"main/internal/ui/views"
+
+	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type App struct {
@@ -207,6 +208,12 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.timerService.Stop()
 		m.timerView.GetTimerComponent().ClearEditState()
 		m.statusBar.SetSuccess("Timer stopped")
+		return m, nil
+
+	case TimerAlreadyStoppedMsg:
+		m.timerService.Stop()
+		m.timerView.GetTimerComponent().ClearEditState()
+		m.statusBar.SetError(fmt.Errorf("timer was already stopped by other instance"))
 		return m, nil
 
 	case TimerDescriptionUpdatedMsg:
@@ -620,6 +627,13 @@ func (m *App) startTimerWithDescription(projectID, taskID *string, description s
 }
 
 func (m *App) stopTimer() tea.Msg {
+	currentEntry, err := m.apiClient.GetCurrentTimer()
+	if err != nil {
+		return ErrorMsg{Err: err}
+	}
+	if currentEntry == nil  {
+		return TimerAlreadyStoppedMsg{}
+	}
 	entry, err := m.apiClient.StopTimer()
 	if err != nil {
 		return ErrorMsg{Err: err}

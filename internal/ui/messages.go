@@ -22,6 +22,9 @@ type TimerStoppedMsg struct {
 	Entry *api.TimeEntry
 }
 
+type TimerAlreadyStoppedMsg struct {
+}
+
 type TimeEntriesLoadedMsg struct {
 	Entries []api.TimeEntry
 }
