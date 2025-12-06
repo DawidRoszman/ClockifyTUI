@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"main/internal/domain"
+	"main/internal/ui/theme"
 )
 
 type ReportType int
@@ -28,24 +29,24 @@ type ReportsComponent struct {
 var (
 	reportHeaderStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#7C3AED")).
+				Foreground(theme.LavenderColor).
 				MarginBottom(1)
 
 	reportTotalStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#10B981")).
+				Foreground(theme.GreenColor).
 				MarginTop(1)
 
 	reportProjectStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#3B82F6"))
+				Foreground(theme.SapphireColor)
 
 	reportTaskStyle = lipgloss.NewStyle().
 			PaddingLeft(4).
-			Foreground(lipgloss.Color("#6B7280"))
+			Foreground(theme.Subtext0Color)
 
 	reportBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#7C3AED"))
+			Foreground(theme.MauveColor)
 )
 
 func NewReportsComponent() *ReportsComponent {
@@ -117,7 +118,7 @@ func (c *ReportsComponent) View() string {
 
 func (c *ReportsComponent) renderDailyReport() string {
 	if c.dailyReport == nil {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).
+		return lipgloss.NewStyle().Foreground(theme.Subtext0Color).
 			Render("Loading daily report...")
 	}
 
@@ -125,7 +126,7 @@ func (c *ReportsComponent) renderDailyReport() string {
 	content := reportHeaderStyle.Render(dateStr) + "\n\n"
 
 	if c.dailyReport.TotalDuration == 0 {
-		content += lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).
+		content += lipgloss.NewStyle().Foreground(theme.Subtext0Color).
 			Italic(true).Render("No time tracked on this day")
 		return content
 	}
@@ -169,7 +170,7 @@ func (c *ReportsComponent) renderDailyReport() string {
 	totalLine := fmt.Sprintf("Total: %s", domain.FormatDuration(c.dailyReport.TotalDuration))
 	content += reportTotalStyle.Render(totalLine)
 
-	helpText := "\n\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).
+	helpText := "\n\n" + lipgloss.NewStyle().Foreground(theme.Subtext0Color).
 		Render("←/→: prev/next day | t: toggle report type")
 
 	return content + helpText
@@ -177,7 +178,7 @@ func (c *ReportsComponent) renderDailyReport() string {
 
 func (c *ReportsComponent) renderWeeklyReport() string {
 	if c.weeklyReport == nil {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).
+		return lipgloss.NewStyle().Foreground(theme.Subtext0Color).
 			Render("Loading weekly report...")
 	}
 
@@ -187,7 +188,7 @@ func (c *ReportsComponent) renderWeeklyReport() string {
 	content := reportHeaderStyle.Render(weekStr) + "\n\n"
 
 	if c.weeklyReport.TotalDuration == 0 {
-		content += lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).
+		content += lipgloss.NewStyle().Foreground(theme.Subtext0Color).
 			Italic(true).Render("No time tracked this week")
 		return content
 	}
@@ -210,7 +211,7 @@ func (c *ReportsComponent) renderWeeklyReport() string {
 			content += line + "\n"
 		} else {
 			line := fmt.Sprintf("  %s %s: -", dayName, dayStr)
-			content += lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render(line) + "\n"
+			content += lipgloss.NewStyle().Foreground(theme.Subtext0Color).Render(line) + "\n"
 		}
 	}
 
@@ -253,7 +254,7 @@ func (c *ReportsComponent) renderWeeklyReport() string {
 	totalLine := fmt.Sprintf("\nTotal: %s", domain.FormatDuration(c.weeklyReport.TotalDuration))
 	content += reportTotalStyle.Render(totalLine)
 
-	helpText := "\n\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).
+	helpText := "\n\n" + lipgloss.NewStyle().Foreground(theme.Subtext0Color).
 		Render("←/→: prev/next week | t: toggle report type")
 
 	return content + helpText

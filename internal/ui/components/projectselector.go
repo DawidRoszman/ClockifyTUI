@@ -3,6 +3,7 @@ package components
 import (
 	"github.com/charmbracelet/lipgloss"
 	"main/internal/api"
+	"main/internal/ui/theme"
 )
 
 type SelectorMode int
@@ -28,7 +29,7 @@ type ProjectSelectorComponent struct {
 var (
 	selectorTitleStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("#7C3AED")).
+				Foreground(theme.LavenderColor).
 				Padding(0, 1)
 
 	selectorItemStyle = lipgloss.NewStyle().
@@ -36,13 +37,13 @@ var (
 
 	selectorSelectedStyle = lipgloss.NewStyle().
 				PaddingLeft(1).
-				Foreground(lipgloss.Color("#7C3AED")).
+				Foreground(theme.MauveColor).
 				Bold(true)
 
 	selectorBoxStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
 				Padding(1).
-				BorderForeground(lipgloss.Color("#7C3AED"))
+				BorderForeground(theme.MauveColor)
 )
 
 func NewProjectSelector() *ProjectSelectorComponent {
@@ -216,7 +217,7 @@ func (c *ProjectSelectorComponent) renderProjectList() string {
 		}
 	}
 
-	content += "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("↑/↓: navigate | enter: select | esc: cancel")
+	content += "\n" + lipgloss.NewStyle().Foreground(theme.Subtext0Color).Render("↑/↓: navigate | enter: select | esc: cancel")
 
 	return selectorBoxStyle.Width(c.width - 4).Render(content)
 }
@@ -226,8 +227,8 @@ func (c *ProjectSelectorComponent) renderTaskList() string {
 	content := title + "\n\n"
 
 	if len(c.tasks) == 0 {
-		content += lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("No tasks available for this project") + "\n\n"
-		content += lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("enter: continue without task | esc: back")
+		content += lipgloss.NewStyle().Foreground(theme.Subtext0Color).Render("No tasks available for this project") + "\n\n"
+		content += lipgloss.NewStyle().Foreground(theme.Subtext0Color).Render("enter: continue without task | esc: back")
 		return selectorBoxStyle.Width(c.width - 4).Render(content)
 	}
 
@@ -241,7 +242,7 @@ func (c *ProjectSelectorComponent) renderTaskList() string {
 		}
 	}
 
-	content += "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("↑/↓: navigate | enter: select | esc: back")
+	content += "\n" + lipgloss.NewStyle().Foreground(theme.Subtext0Color).Render("↑/↓: navigate | enter: select | esc: back")
 
 	return selectorBoxStyle.Width(c.width - 4).Render(content)
 }
@@ -251,11 +252,11 @@ func (c *ProjectSelectorComponent) renderDescriptionInput() string {
 	content := title + "\n\n"
 
 	inputStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#10B981")).
+		Foreground(theme.GreenColor).
 		Bold(true)
 
 	placeholderStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6B7280")).
+		Foreground(theme.Subtext0Color).
 		Italic(true)
 
 	if c.description == "" {
@@ -271,7 +272,7 @@ func (c *ProjectSelectorComponent) renderDescriptionInput() string {
 		projectName = c.projects[c.selectedProject].Name
 	}
 
-	summaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280"))
+	summaryStyle := lipgloss.NewStyle().Foreground(theme.Subtext0Color)
 	content += summaryStyle.Render("Project: "+projectName) + "\n"
 
 	if c.selectedTask >= 0 && c.selectedTask < len(c.tasks) {
@@ -279,7 +280,7 @@ func (c *ProjectSelectorComponent) renderDescriptionInput() string {
 		content += summaryStyle.Render("Task: "+taskName) + "\n"
 	}
 
-	content += "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("enter: start timer | esc: back")
+	content += "\n" + lipgloss.NewStyle().Foreground(theme.Subtext0Color).Render("enter: start timer | esc: back")
 
 	return selectorBoxStyle.Width(c.width - 4).Render(content)
 }

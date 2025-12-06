@@ -1,31 +1,27 @@
 package ui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
+	"main/internal/ui/theme"
+)
 
 var (
-	PrimaryColor = lipgloss.Color("#7C3AED")
-	SuccessColor = lipgloss.Color("#10B981")
-	ErrorColor   = lipgloss.Color("#EF4444")
-	MutedColor   = lipgloss.Color("#6B7280")
-	InfoColor    = lipgloss.Color("#3B82F6")
-	WarningColor = lipgloss.Color("#F59E0B")
-
 	TitleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(PrimaryColor).
+			Foreground(theme.PrimaryColor).
 			MarginBottom(1)
 
 	ErrorStyle = lipgloss.NewStyle().
-			Foreground(ErrorColor)
+			Foreground(theme.ErrorColor)
 
 	SuccessStyle = lipgloss.NewStyle().
-			Foreground(SuccessColor)
+			Foreground(theme.SuccessColor)
 
 	MutedStyle = lipgloss.NewStyle().
-			Foreground(MutedColor)
+			Foreground(theme.MutedColor)
 
 	InfoStyle = lipgloss.NewStyle().
-			Foreground(InfoColor)
+			Foreground(theme.InfoColor)
 
 	BorderStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -33,38 +29,38 @@ var (
 
 	ActiveTabStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(PrimaryColor).
+			Foreground(theme.PrimaryColor).
 			Padding(0, 2)
 
 	InactiveTabStyle = lipgloss.NewStyle().
-			Foreground(MutedColor).
+			Foreground(theme.MutedColor).
 			Padding(0, 2)
 
 	TimerBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.DoubleBorder()).
 			Padding(1, 2).
-			BorderForeground(PrimaryColor)
+			BorderForeground(theme.PrimaryColor)
 
 	ListItemStyle = lipgloss.NewStyle().
 			PaddingLeft(2)
 
 	SelectedItemStyle = lipgloss.NewStyle().
 				PaddingLeft(2).
-				Foreground(PrimaryColor).
+				Foreground(theme.PrimaryColor).
 				Bold(true)
 
 	StatusBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Background(MutedColor).
+			Foreground(theme.TextColor).
+			Background(theme.Surface0Color).
 			Padding(0, 1)
 
 	StatusBarErrorStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#FFFFFF")).
-				Background(ErrorColor).
+				Foreground(theme.BaseColor).
+				Background(theme.ErrorColor).
 				Padding(0, 1)
 
 	StatusBarSuccessStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#FFFFFF")).
-				Background(SuccessColor).
+				Foreground(theme.BaseColor).
+				Background(theme.SuccessColor).
 				Padding(0, 1)
 )

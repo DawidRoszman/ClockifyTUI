@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"main/internal/api"
 	"main/internal/domain"
+	"main/internal/ui/theme"
 )
 
 type EntriesViewMode int
@@ -32,15 +33,15 @@ var (
 
 	entrySelectedStyle = lipgloss.NewStyle().
 				PaddingLeft(1).
-				Foreground(lipgloss.Color("#7C3AED")).
+				Foreground(theme.MauveColor).
 				Bold(true).
 				MarginBottom(1)
 
 	entryTimeStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280"))
+			Foreground(theme.Subtext0Color)
 
 	entryDurationStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#10B981")).
+				Foreground(theme.GreenColor).
 				Bold(true)
 )
 
@@ -137,7 +138,7 @@ func (c *EntriesComponent) View() string {
 		content += entryView + "\n"
 	}
 
-	helpText := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).
+	helpText := lipgloss.NewStyle().Foreground(theme.Subtext0Color).
 		Render(fmt.Sprintf("↑/↓: navigate | t: toggle view (%d entries)", len(c.entries)))
 
 	return content + "\n" + helpText
@@ -145,7 +146,7 @@ func (c *EntriesComponent) View() string {
 
 func (c *EntriesComponent) renderEmpty() string {
 	emptyStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6B7280")).
+		Foreground(theme.Subtext0Color).
 		Italic(true)
 
 	modeStr := "today"

@@ -3,6 +3,7 @@ package components
 import (
 	"github.com/charmbracelet/lipgloss"
 	"main/internal/domain"
+	"main/internal/ui/theme"
 )
 
 type TimerComponent struct {
@@ -16,10 +17,10 @@ var (
 	timerBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.DoubleBorder()).
 			Padding(1, 2).
-			BorderForeground(lipgloss.Color("#7C3AED"))
+			BorderForeground(theme.PrimaryColor)
 
-	timerRunningColor = lipgloss.Color("#10B981")
-	timerStoppedColor = lipgloss.Color("#6B7280")
+	timerRunningColor = theme.GreenColor
+	timerStoppedColor = theme.Overlay0Color
 )
 
 func NewTimerComponent(state *domain.TimerState) *TimerComponent {
@@ -96,12 +97,12 @@ func (c *TimerComponent) renderRunningTimer() string {
 		content += lipgloss.NewStyle().Bold(true).Render("Description: ") + "\n"
 
 		inputStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#10B981")).
+			Foreground(theme.GreenColor).
 			Bold(true)
 
 		content += "  " + inputStyle.Render(c.editBuffer) + "█\n"
 		content += "\n" + lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280")).
+			Foreground(theme.Subtext0Color).
 			Render("  enter: save | esc: cancel") + "\n"
 	} else {
 		if c.timerState.Description != "" {

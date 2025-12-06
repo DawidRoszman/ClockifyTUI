@@ -6,6 +6,7 @@ import (
 	"main/internal/api"
 	"main/internal/domain"
 	"main/internal/ui/components"
+	"main/internal/ui/theme"
 )
 
 type TimerView struct {
@@ -69,11 +70,11 @@ func (v *TimerView) View() string {
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#7C3AED")).
+		Foreground(theme.LavenderColor).
 		MarginBottom(1)
 
 	mutedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6B7280"))
+		Foreground(theme.Subtext0Color)
 
 	content := titleStyle.Render("⏱  Timer") + "\n\n"
 	content += v.timerComponent.View() + "\n\n"

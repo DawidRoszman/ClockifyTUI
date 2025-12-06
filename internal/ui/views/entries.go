@@ -5,6 +5,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"main/internal/api"
 	"main/internal/ui/components"
+	"main/internal/ui/theme"
 )
 
 type EntriesView struct {
@@ -60,7 +61,7 @@ func (v *EntriesView) Update(msg tea.Msg) (*EntriesView, tea.Cmd) {
 func (v *EntriesView) View() string {
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#7C3AED")).
+		Foreground(theme.LavenderColor).
 		MarginBottom(1)
 
 	viewModeStr := "Today"

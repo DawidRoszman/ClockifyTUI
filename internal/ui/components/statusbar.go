@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/lipgloss"
+	"main/internal/ui/theme"
 )
 
 type StatusBarComponent struct {
@@ -22,18 +23,18 @@ const (
 
 var (
 	statusBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Background(lipgloss.Color("#6B7280")).
+			Foreground(theme.TextColor).
+			Background(theme.Surface0Color).
 			Padding(0, 1)
 
 	statusBarErrorStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#FFFFFF")).
-				Background(lipgloss.Color("#EF4444")).
+				Foreground(theme.BaseColor).
+				Background(theme.RedColor).
 				Padding(0, 1)
 
 	statusBarSuccessStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#FFFFFF")).
-				Background(lipgloss.Color("#10B981")).
+				Foreground(theme.BaseColor).
+				Background(theme.GreenColor).
 				Padding(0, 1)
 )
 

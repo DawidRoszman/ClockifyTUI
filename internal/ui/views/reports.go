@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"main/internal/domain"
 	"main/internal/ui/components"
+	"main/internal/ui/theme"
 )
 
 type ReportsView struct {
@@ -62,7 +63,7 @@ func (v *ReportsView) Update(msg tea.Msg) (*ReportsView, tea.Cmd) {
 func (v *ReportsView) View() string {
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#7C3AED")).
+		Foreground(theme.LavenderColor).
 		MarginBottom(1)
 
 	reportTypeStr := "Daily"
