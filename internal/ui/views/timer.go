@@ -39,6 +39,10 @@ func (v *TimerView) SetProjectMap(projects map[string]string) {
 	v.timerComponent.SetProjectMap(projects)
 }
 
+func (v *TimerView) SetTagMap(tags map[string]string) {
+	v.timerComponent.SetTagMap(tags)
+}
+
 func (v *TimerView) ShowProjectSelector() {
 	v.showSelector = true
 }

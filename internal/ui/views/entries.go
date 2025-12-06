@@ -38,6 +38,10 @@ func (v *EntriesView) SetTasks(tasks map[string]string) {
 	v.entriesComponent.SetTasks(tasks)
 }
 
+func (v *EntriesView) SetTags(tags map[string]string) {
+	v.entriesComponent.SetTags(tags)
+}
+
 func (v *EntriesView) GetViewMode() components.EntriesViewMode {
 	return v.entriesComponent.GetViewMode()
 }

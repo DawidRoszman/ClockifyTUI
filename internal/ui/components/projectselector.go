@@ -12,13 +12,17 @@ const (
 	SelectingProject SelectorMode = iota
 	SelectingTask
 	EnteringDescription
+	SelectingTags
 )
 
 type ProjectSelectorComponent struct {
 	projects        []api.Project
 	tasks           []api.Task
+	tags            []api.Tag
 	selectedProject int
 	selectedTask    int
+	selectedTags    map[int]bool
+	currentTagCursor int
 	mode            SelectorMode
 	filterInput     string
 	description     string
@@ -51,6 +55,7 @@ func NewProjectSelector() *ProjectSelectorComponent {
 		mode:            SelectingProject,
 		selectedProject: 0,
 		selectedTask:    -1,
+		selectedTags:    make(map[int]bool),
 	}
 }
 
@@ -65,6 +70,12 @@ func (c *ProjectSelectorComponent) SetTasks(tasks []api.Task) {
 	c.mode = SelectingTask
 }
 
+func (c *ProjectSelectorComponent) SetTags(tags []api.Tag) {
+	c.tags = tags
+	c.selectedTags = make(map[int]bool)
+	c.currentTagCursor = 0
+}
+
 func (c *ProjectSelectorComponent) SetSize(width, height int) {
 	c.width = width
 	c.height = height
@@ -75,9 +86,13 @@ func (c *ProjectSelectorComponent) MoveUp() {
 		if c.selectedProject > 0 {
 			c.selectedProject--
 		}
-	} else {
+	} else if c.mode == SelectingTask {
 		if c.selectedTask > 0 {
 			c.selectedTask--
+		}
+	} else if c.mode == SelectingTags {
+		if c.currentTagCursor > 0 {
+			c.currentTagCursor--
 		}
 	}
 }
@@ -87,14 +102,24 @@ func (c *ProjectSelectorComponent) MoveDown() {
 		if c.selectedProject < len(c.projects)-1 {
 			c.selectedProject++
 		}
-	} else {
+	} else if c.mode == SelectingTask {
 		if c.selectedTask < len(c.tasks)-1 {
 			c.selectedTask++
+		}
+	} else if c.mode == SelectingTags {
+		if c.currentTagCursor < len(c.tags)-1 {
+			c.currentTagCursor++
 		}
 	}
 }
 
 func (c *ProjectSelectorComponent) Back() bool {
+	if c.mode == SelectingTags {
+		c.mode = EnteringDescription
+		c.selectedTags = make(map[int]bool)
+		c.currentTagCursor = 0
+		return false
+	}
 	if c.mode == EnteringDescription {
 		if len(c.tasks) > 0 {
 			c.mode = SelectingTask
@@ -125,6 +150,42 @@ func (c *ProjectSelectorComponent) GetSelection() (projectID, taskID *string, ne
 	}
 
 	return nil, nil, false
+}
+
+func (c *ProjectSelectorComponent) TransitionToTagSelection() {
+	if c.mode == EnteringDescription {
+		c.mode = SelectingTags
+	}
+}
+
+func (c *ProjectSelectorComponent) ToggleCurrentTag() {
+	if c.mode == SelectingTags && c.currentTagCursor >= 0 && c.currentTagCursor < len(c.tags) {
+		c.selectedTags[c.currentTagCursor] = !c.selectedTags[c.currentTagCursor]
+	}
+}
+
+func (c *ProjectSelectorComponent) ConfirmTags() (projectID, taskID, description *string, tagIDs []string) {
+	if c.mode != SelectingTags {
+		return nil, nil, nil, nil
+	}
+
+	pid := c.projects[c.selectedProject].ID
+	var tid *string
+	if c.selectedTask >= 0 && c.selectedTask < len(c.tasks) {
+		t := c.tasks[c.selectedTask].ID
+		tid = &t
+	}
+
+	desc := c.description
+
+	var selectedTagIDs []string
+	for idx, selected := range c.selectedTags {
+		if selected && idx < len(c.tags) {
+			selectedTagIDs = append(selectedTagIDs, c.tags[idx].ID)
+		}
+	}
+
+	return &pid, tid, &desc, selectedTagIDs
 }
 
 func (c *ProjectSelectorComponent) ConfirmDescription() (projectID, taskID, description *string) {
@@ -163,6 +224,8 @@ func (c *ProjectSelectorComponent) Reset() {
 	c.mode = SelectingProject
 	c.selectedProject = 0
 	c.selectedTask = -1
+	c.selectedTags = make(map[int]bool)
+	c.currentTagCursor = 0
 	c.tasks = nil
 	c.description = ""
 }
@@ -180,6 +243,8 @@ func (c *ProjectSelectorComponent) View() string {
 		return c.renderProjectList()
 	} else if c.mode == SelectingTask {
 		return c.renderTaskList()
+	} else if c.mode == SelectingTags {
+		return c.renderTagList()
 	}
 	return c.renderDescriptionInput()
 }
@@ -281,6 +346,55 @@ func (c *ProjectSelectorComponent) renderDescriptionInput() string {
 	}
 
 	content += "\n" + lipgloss.NewStyle().Foreground(theme.Subtext0Color).Render("enter: start timer | esc: back")
+
+	return selectorBoxStyle.Width(c.width - 4).Render(content)
+}
+
+func (c *ProjectSelectorComponent) renderTagList() string {
+	title := selectorTitleStyle.Render("Select Tags (optional)")
+	content := title + "\n\n"
+
+	if len(c.tags) == 0 {
+		content += lipgloss.NewStyle().Foreground(theme.Subtext0Color).Render("No tags available") + "\n\n"
+		content += lipgloss.NewStyle().Foreground(theme.Subtext0Color).Render("enter: continue without tags | esc: back")
+		return selectorBoxStyle.Width(c.width - 4).Render(content)
+	}
+
+	visibleStart := 0
+	visibleEnd := len(c.tags)
+	maxVisible := 10
+
+	if len(c.tags) > maxVisible {
+		if c.currentTagCursor > maxVisible/2 {
+			visibleStart = c.currentTagCursor - maxVisible/2
+		}
+		visibleEnd = visibleStart + maxVisible
+		if visibleEnd > len(c.tags) {
+			visibleEnd = len(c.tags)
+			visibleStart = visibleEnd - maxVisible
+			if visibleStart < 0 {
+				visibleStart = 0
+			}
+		}
+	}
+
+	for i := visibleStart; i < visibleEnd; i++ {
+		tag := c.tags[i]
+		checkbox := "[ ]"
+		if c.selectedTags[i] {
+			checkbox = "[✓]"
+		}
+
+		line := checkbox + " " + tag.Name
+
+		if i == c.currentTagCursor {
+			content += selectorSelectedStyle.Render("▶ "+line) + "\n"
+		} else {
+			content += selectorItemStyle.Render(line) + "\n"
+		}
+	}
+
+	content += "\n" + lipgloss.NewStyle().Foreground(theme.Subtext0Color).Render("↑/↓: navigate | space: toggle | enter: confirm | esc: back")
 
 	return selectorBoxStyle.Width(c.width - 4).Render(content)
 }

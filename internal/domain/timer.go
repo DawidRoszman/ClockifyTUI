@@ -14,6 +14,7 @@ type TimerState struct {
 	Description  string
 	ProjectID    *string
 	TaskID       *string
+	TagIDs       []string
 }
 
 func NewTimerState() *TimerState {
@@ -29,6 +30,7 @@ func (t *TimerState) Start(entry *api.TimeEntry) {
 	t.Description = entry.Description
 	t.ProjectID = entry.ProjectID
 	t.TaskID = entry.TaskID
+	t.TagIDs = entry.TagIDs
 }
 
 func (t *TimerState) Stop() {
@@ -38,6 +40,7 @@ func (t *TimerState) Stop() {
 	t.Description = ""
 	t.ProjectID = nil
 	t.TaskID = nil
+	t.TagIDs = nil
 }
 
 func (t *TimerState) GetElapsedDuration() time.Duration {

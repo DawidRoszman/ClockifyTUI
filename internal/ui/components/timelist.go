@@ -20,6 +20,7 @@ type EntriesComponent struct {
 	entries       []api.TimeEntry
 	projects      map[string]string
 	tasks         map[string]string
+	tags          map[string]string
 	selectedIndex int
 	viewMode      EntriesViewMode
 	width         int
@@ -70,6 +71,10 @@ func (c *EntriesComponent) SetProjects(projects map[string]string) {
 
 func (c *EntriesComponent) SetTasks(tasks map[string]string) {
 	c.tasks = tasks
+}
+
+func (c *EntriesComponent) SetTags(tags map[string]string) {
+	c.tags = tags
 }
 
 func (c *EntriesComponent) SetSize(width, height int) {
@@ -194,11 +199,36 @@ func (c *EntriesComponent) formatEntry(entry *api.TimeEntry, selected bool) stri
 		}
 	}
 
+	tagsStr := ""
+	if len(entry.TagIDs) > 0 {
+		tagNames := []string{}
+		for _, tagID := range entry.TagIDs {
+			if name, ok := c.tags[tagID]; ok {
+				tagNames = append(tagNames, name)
+			}
+		}
+		if len(tagNames) > 0 {
+			tagStyle := lipgloss.NewStyle().
+				Foreground(theme.MauveColor).
+				Italic(true)
+
+			joinedTags := ""
+			for i, name := range tagNames {
+				if i > 0 {
+					joinedTags += ", "
+				}
+				joinedTags += name
+			}
+			tagsStr = " • " + tagStyle.Render(joinedTags)
+		}
+	}
+
 	line1 := description
 	line2 := entryTimeStyle.Render(startTime) + " " + entryDurationStyle.Render(duration)
 	if projectName != "" {
 		line2 += " • " + projectName + taskName
 	}
+	line2 += tagsStr
 
 	content := line1 + "\n" + line2
 

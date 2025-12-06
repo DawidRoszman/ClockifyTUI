@@ -20,6 +20,7 @@ type KeyMap struct {
 	Back              key.Binding
 	Help              key.Binding
 	ToggleView        key.Binding
+	Space             key.Binding
 }
 
 func DefaultKeyMap() KeyMap {
@@ -91,6 +92,10 @@ func DefaultKeyMap() KeyMap {
 		ToggleView: key.NewBinding(
 			key.WithKeys("t"),
 			key.WithHelp("t", "toggle"),
+		),
+		Space: key.NewBinding(
+			key.WithKeys(" "),
+			key.WithHelp("space", "toggle selection"),
 		),
 	}
 }

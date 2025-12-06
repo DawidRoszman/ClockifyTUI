@@ -22,6 +22,7 @@ type ReportsComponent struct {
 	dailyReport   *domain.DailySummary
 	weeklyReport  *domain.WeeklySummary
 	selectedDate  time.Time
+	tags          map[string]string
 	width         int
 	height        int
 }
@@ -78,6 +79,10 @@ func (c *ReportsComponent) SetDailyReport(report *domain.DailySummary) {
 
 func (c *ReportsComponent) SetWeeklyReport(report *domain.WeeklySummary) {
 	c.weeklyReport = report
+}
+
+func (c *ReportsComponent) SetTags(tags map[string]string) {
+	c.tags = tags
 }
 
 func (c *ReportsComponent) SetSelectedDate(date time.Time) {

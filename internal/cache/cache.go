@@ -10,8 +10,10 @@ import (
 type Cache struct {
 	projects      []api.Project
 	tasks         map[string][]api.Task
+	tags          []api.Tag
 	projectsMutex sync.RWMutex
 	tasksMutex    sync.RWMutex
+	tagsMutex     sync.RWMutex
 	ttl           time.Duration
 	lastUpdate    time.Time
 }
@@ -19,6 +21,7 @@ type Cache struct {
 func NewCache(ttl time.Duration) *Cache {
 	return &Cache{
 		tasks:      make(map[string][]api.Task),
+		tags:       []api.Tag{},
 		ttl:        ttl,
 		lastUpdate: time.Time{},
 	}
@@ -60,6 +63,23 @@ func (c *Cache) GetTasks(projectID string) ([]api.Task, bool) {
 	return tasks, ok
 }
 
+func (c *Cache) SetTags(tags []api.Tag) {
+	c.tagsMutex.Lock()
+	defer c.tagsMutex.Unlock()
+	c.tags = tags
+}
+
+func (c *Cache) GetTags() ([]api.Tag, bool) {
+	c.tagsMutex.RLock()
+	defer c.tagsMutex.RUnlock()
+
+	if c.IsExpired() || len(c.tags) == 0 {
+		return nil, false
+	}
+
+	return c.tags, true
+}
+
 func (c *Cache) IsExpired() bool {
 	if c.lastUpdate.IsZero() {
 		return true
@@ -70,10 +90,13 @@ func (c *Cache) IsExpired() bool {
 func (c *Cache) Clear() {
 	c.projectsMutex.Lock()
 	c.tasksMutex.Lock()
+	c.tagsMutex.Lock()
 	defer c.projectsMutex.Unlock()
 	defer c.tasksMutex.Unlock()
+	defer c.tagsMutex.Unlock()
 
 	c.projects = nil
 	c.tasks = make(map[string][]api.Task)
+	c.tags = nil
 	c.lastUpdate = time.Time{}
 }

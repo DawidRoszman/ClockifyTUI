@@ -25,6 +25,7 @@ type TimeEntry struct {
 	Description  string       `json:"description"`
 	ProjectID    *string      `json:"projectId,omitempty"`
 	TaskID       *string      `json:"taskId,omitempty"`
+	TagIDs       []string     `json:"tagIds,omitempty"`
 	WorkspaceID  string       `json:"workspaceId"`
 	UserID       string       `json:"userId"`
 	TimeInterval TimeInterval `json:"timeInterval"`
@@ -36,6 +37,7 @@ type TimeEntryRequest struct {
 	Description string    `json:"description"`
 	ProjectID   *string   `json:"projectId,omitempty"`
 	TaskID      *string   `json:"taskId,omitempty"`
+	TagIDs      []string  `json:"tagIds,omitempty"`
 }
 
 type Project struct {
@@ -51,6 +53,13 @@ type Task struct {
 	Name      string `json:"name"`
 	ProjectID string `json:"projectId"`
 	Status    string `json:"status"`
+}
+
+type Tag struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	WorkspaceID string `json:"workspaceId"`
+	Archived    bool   `json:"archived"`
 }
 
 type DetailedReportRequest struct {

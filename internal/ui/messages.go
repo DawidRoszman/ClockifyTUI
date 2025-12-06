@@ -35,6 +35,10 @@ type TasksLoadedMsg struct {
 	Tasks     []api.Task
 }
 
+type TagsLoadedMsg struct {
+	Tags []api.Tag
+}
+
 type DailyReportLoadedMsg struct {
 	Date   time.Time
 	Report any

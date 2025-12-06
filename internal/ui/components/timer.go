@@ -7,10 +7,11 @@ import (
 )
 
 type TimerComponent struct {
-	timerState        *domain.TimerState
-	projects          map[string]string
+	timerState         *domain.TimerState
+	projects           map[string]string
+	tags               map[string]string
 	editingDescription bool
-	editBuffer        string
+	editBuffer         string
 }
 
 var (
@@ -32,6 +33,10 @@ func NewTimerComponent(state *domain.TimerState) *TimerComponent {
 
 func (c *TimerComponent) SetProjectMap(projects map[string]string) {
 	c.projects = projects
+}
+
+func (c *TimerComponent) SetTagMap(tags map[string]string) {
+	c.tags = tags
 }
 
 func (c *TimerComponent) IsRunning() bool {
@@ -116,6 +121,34 @@ func (c *TimerComponent) renderRunningTimer() string {
 			projectName = name
 		}
 		content += lipgloss.NewStyle().Bold(true).Render("Project: ") + projectName + "\n"
+	}
+
+	if len(c.timerState.TagIDs) > 0 {
+		tagNames := []string{}
+		for _, tagID := range c.timerState.TagIDs {
+			if name, ok := c.tags[tagID]; ok {
+				tagNames = append(tagNames, name)
+			} else {
+				tagNames = append(tagNames, tagID)
+			}
+		}
+
+		if len(tagNames) > 0 {
+			tagStyle := lipgloss.NewStyle().
+				Foreground(theme.MauveColor).
+				Italic(true)
+
+			tagsStr := ""
+			for i, name := range tagNames {
+				if i > 0 {
+					tagsStr += ", "
+				}
+				tagsStr += name
+			}
+
+			content += lipgloss.NewStyle().Bold(true).Render("Tags: ") +
+				tagStyle.Render(tagsStr) + "\n"
+		}
 	}
 
 	return timerBoxStyle.Render(content)

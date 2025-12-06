@@ -21,6 +21,7 @@ type App struct {
 	entryService   *domain.TimeEntryService
 	reportService  *domain.ReportService
 	projectService *domain.ProjectService
+	tagService     *domain.TagService
 
 	currentView ViewType
 	width       int
@@ -35,6 +36,7 @@ type App struct {
 	entries     []api.TimeEntry
 	projectsMap map[string]string
 	tasksMap    map[string]string
+	tagsMap     map[string]string
 
 	showHelp  bool
 	isLoading bool
@@ -53,6 +55,7 @@ func NewApp(client *api.Client) *App {
 		entryService:   domain.NewTimeEntryService(client),
 		reportService:  domain.NewReportService(client),
 		projectService: domain.NewProjectService(client, cacheInstance),
+		tagService:     domain.NewTagService(client, cacheInstance),
 		currentView:    TimerView,
 		timerView:      views.NewTimerView(timerState),
 		entriesView:    views.NewEntriesView(),
@@ -60,6 +63,7 @@ func NewApp(client *api.Client) *App {
 		statusBar:      components.NewStatusBar(),
 		projectsMap:    make(map[string]string),
 		tasksMap:       make(map[string]string),
+		tagsMap:        make(map[string]string),
 		keys:           DefaultKeyMap(),
 	}
 }
@@ -69,6 +73,7 @@ func (m App) Init() tea.Cmd {
 		tickCmd(),
 		m.loadCurrentTimer,
 		m.loadProjects,
+		m.loadTags,
 	)
 }
 
@@ -228,6 +233,18 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.entriesView.SetTasks(m.tasksMap)
 		return m, nil
 
+	case TagsLoadedMsg:
+		tagMap := make(map[string]string)
+		for _, tag := range msg.Tags {
+			tagMap[tag.ID] = tag.Name
+		}
+		m.tagsMap = tagMap
+		m.timerView.GetProjectSelector().SetTags(msg.Tags)
+		m.timerView.SetTagMap(tagMap)
+		m.entriesView.SetTags(tagMap)
+		m.reportsView.SetTags(tagMap)
+		return m, nil
+
 	case TimeEntriesLoadedMsg:
 		m.entries = msg.Entries
 		m.entriesView.SetEntries(msg.Entries)
@@ -287,15 +304,42 @@ func (m App) handleDescriptionEditKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m App) handleSelectorKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	selector := m.timerView.GetProjectSelector()
 
-	if selector.GetMode() == components.EnteringDescription {
-		switch msg.Type {
-		case tea.KeyEnter:
-			projectID, taskID, description := selector.ConfirmDescription()
+	if selector.GetMode() == components.SelectingTags {
+		switch {
+		case key.Matches(msg, m.keys.Up):
+			selector.MoveUp()
+			return m, nil
+
+		case key.Matches(msg, m.keys.Down):
+			selector.MoveDown()
+			return m, nil
+
+		case key.Matches(msg, m.keys.Space):
+			selector.ToggleCurrentTag()
+			return m, nil
+
+		case key.Matches(msg, m.keys.Enter):
+			projectID, taskID, description, tagIDs := selector.ConfirmTags()
 			if projectID != nil {
 				selector.Reset()
 				m.timerView.HideProjectSelector()
-				return m, m.startTimerWithDescription(projectID, taskID, *description)
+				return m, m.startTimerWithTags(projectID, taskID, *description, tagIDs)
 			}
+			return m, nil
+
+		case key.Matches(msg, m.keys.Back):
+			if selector.Back() {
+				m.timerView.HideProjectSelector()
+			}
+			return m, nil
+		}
+		return m, nil
+	}
+
+	if selector.GetMode() == components.EnteringDescription {
+		switch msg.Type {
+		case tea.KeyEnter:
+			selector.TransitionToTagSelection()
 			return m, nil
 
 		case tea.KeyBackspace:
@@ -537,15 +581,19 @@ func (m *App) loadTasksForProject(projectID string) tea.Cmd {
 	}
 }
 
-func (m *App) startTimerWithDescription(projectID, taskID *string, description string) tea.Cmd {
+func (m *App) startTimerWithTags(projectID, taskID *string, description string, tagIDs []string) tea.Cmd {
 	return func() tea.Msg {
-		entry, err := m.apiClient.StartTimer(description, projectID, taskID)
+		entry, err := m.apiClient.StartTimer(description, projectID, taskID, tagIDs)
 		if err != nil {
 			return ErrorMsg{Err: err}
 		}
 
 		return TimerStartedMsg{Entry: entry}
 	}
+}
+
+func (m *App) startTimerWithDescription(projectID, taskID *string, description string) tea.Cmd {
+	return m.startTimerWithTags(projectID, taskID, description, nil)
 }
 
 func (m *App) stopTimer() tea.Msg {
@@ -572,6 +620,7 @@ func (m *App) updateTimerDescription(description string) tea.Cmd {
 			Description: description,
 			ProjectID:   currentEntry.ProjectID,
 			TaskID:      currentEntry.TaskID,
+			TagIDs:      currentEntry.TagIDs,
 		}
 
 		entry, err := m.apiClient.UpdateTimeEntry(entryID, req)
@@ -632,6 +681,15 @@ func (m *App) loadReports() tea.Cmd {
 			}
 		}
 	}
+}
+
+func (m *App) loadTags() tea.Msg {
+	tags, err := m.tagService.GetAllTags()
+	if err != nil {
+		return ErrorMsg{Err: err}
+	}
+
+	return TagsLoadedMsg{Tags: tags}
 }
 
 func (m *App) refresh() tea.Cmd {

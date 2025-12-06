@@ -44,6 +44,10 @@ func (v *ReportsView) SetWeeklyReport(report *domain.WeeklySummary) {
 	v.reportsComponent.SetWeeklyReport(report)
 }
 
+func (v *ReportsView) SetTags(tags map[string]string) {
+	v.reportsComponent.SetTags(tags)
+}
+
 func (v *ReportsView) ToggleReportType() {
 	v.reportsComponent.ToggleReportType()
 }

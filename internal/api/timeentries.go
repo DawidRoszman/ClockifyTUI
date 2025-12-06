@@ -36,12 +36,13 @@ func (c *Client) GetCurrentTimer() (*TimeEntry, error) {
 	return &entries[0], nil
 }
 
-func (c *Client) StartTimer(description string, projectID, taskID *string) (*TimeEntry, error) {
+func (c *Client) StartTimer(description string, projectID, taskID *string, tagIDs []string) (*TimeEntry, error) {
 	req := TimeEntryRequest{
 		Start:       time.Now().UTC(),
 		Description: description,
 		ProjectID:   projectID,
 		TaskID:      taskID,
+		TagIDs:      tagIDs,
 	}
 
 	path := fmt.Sprintf("/workspaces/%s/time-entries", c.workspaceID)
