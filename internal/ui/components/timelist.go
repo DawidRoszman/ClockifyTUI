@@ -130,10 +130,7 @@ func (c *EntriesComponent) View() string {
 		visibleEnd = visibleStart + maxVisible
 		if visibleEnd > len(c.entries) {
 			visibleEnd = len(c.entries)
-			visibleStart = visibleEnd - maxVisible
-			if visibleStart < 0 {
-				visibleStart = 0
-			}
+			visibleStart = max(visibleEnd - maxVisible, 0)
 		}
 	}
 

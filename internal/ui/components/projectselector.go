@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"main/internal/api"
 	"main/internal/ui/theme"
+	"slices"
 )
 
 type SelectorMode int
@@ -16,18 +17,18 @@ const (
 )
 
 type ProjectSelectorComponent struct {
-	projects        []api.Project
-	tasks           []api.Task
-	tags            []api.Tag
-	selectedProject int
-	selectedTask    int
-	selectedTags    map[int]bool
+	projects         []api.Project
+	tasks            []api.Task
+	tags             []api.Tag
+	selectedProject  int
+	selectedTask     int
+	selectedTags     map[int]bool
 	currentTagCursor int
-	mode            SelectorMode
-	filterInput     string
-	description     string
-	width           int
-	height          int
+	mode             SelectorMode
+	filterInput      string
+	description      string
+	width            int
+	height           int
 }
 
 var (
@@ -83,11 +84,8 @@ func (c *ProjectSelectorComponent) SetTagsForEditing(currentTagIDs []string, tag
 	c.mode = SelectingTags
 
 	for i, tag := range c.tags {
-		for _, currentID := range currentTagIDs {
-			if tag.ID == currentID {
-				c.selectedTags[i] = true
-				break
-			}
+		if slices.Contains(currentTagIDs, tag.ID) {
+			c.selectedTags[i] = true
 		}
 	}
 }
@@ -98,15 +96,16 @@ func (c *ProjectSelectorComponent) SetSize(width, height int) {
 }
 
 func (c *ProjectSelectorComponent) MoveUp() {
-	if c.mode == SelectingProject {
+	switch c.mode {
+	case SelectingProject:
 		if c.selectedProject > 0 {
 			c.selectedProject--
 		}
-	} else if c.mode == SelectingTask {
+	case SelectingTask:
 		if c.selectedTask > 0 {
 			c.selectedTask--
 		}
-	} else if c.mode == SelectingTags {
+	case SelectingTags:
 		if c.currentTagCursor > 0 {
 			c.currentTagCursor--
 		}
@@ -114,15 +113,16 @@ func (c *ProjectSelectorComponent) MoveUp() {
 }
 
 func (c *ProjectSelectorComponent) MoveDown() {
-	if c.mode == SelectingProject {
+	switch c.mode {
+	case SelectingProject:
 		if c.selectedProject < len(c.projects)-1 {
 			c.selectedProject++
 		}
-	} else if c.mode == SelectingTask {
+	case SelectingTask:
 		if c.selectedTask < len(c.tasks)-1 {
 			c.selectedTask++
 		}
-	} else if c.mode == SelectingTags {
+	case SelectingTags:
 		if c.currentTagCursor < len(c.tags)-1 {
 			c.currentTagCursor++
 		}
@@ -265,11 +265,12 @@ func (c *ProjectSelectorComponent) GetSelectedProjectID() *string {
 }
 
 func (c *ProjectSelectorComponent) View() string {
-	if c.mode == SelectingProject {
+	switch c.mode {
+	case SelectingProject:
 		return c.renderProjectList()
-	} else if c.mode == SelectingTask {
+	case SelectingTask:
 		return c.renderTaskList()
-	} else if c.mode == SelectingTags {
+	case SelectingTags:
 		return c.renderTagList()
 	}
 	return c.renderDescriptionInput()
@@ -290,10 +291,7 @@ func (c *ProjectSelectorComponent) renderProjectList() string {
 		visibleEnd = visibleStart + maxVisible
 		if visibleEnd > len(c.projects) {
 			visibleEnd = len(c.projects)
-			visibleStart = visibleEnd - maxVisible
-			if visibleStart < 0 {
-				visibleStart = 0
-			}
+			visibleStart = max(visibleEnd-maxVisible, 0)
 		}
 	}
 
@@ -397,10 +395,7 @@ func (c *ProjectSelectorComponent) renderTagList() string {
 		visibleEnd = visibleStart + maxVisible
 		if visibleEnd > len(c.tags) {
 			visibleEnd = len(c.tags)
-			visibleStart = visibleEnd - maxVisible
-			if visibleStart < 0 {
-				visibleStart = 0
-			}
+			visibleStart = max(visibleEnd-maxVisible, 0)
 		}
 	}
 

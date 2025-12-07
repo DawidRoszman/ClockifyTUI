@@ -18,13 +18,13 @@ const (
 )
 
 type ReportsComponent struct {
-	reportType    ReportType
-	dailyReport   *domain.DailySummary
-	weeklyReport  *domain.WeeklySummary
-	selectedDate  time.Time
-	tags          map[string]string
-	width         int
-	height        int
+	reportType   ReportType
+	dailyReport  *domain.DailySummary
+	weeklyReport *domain.WeeklySummary
+	selectedDate time.Time
+	tags         map[string]string
+	width        int
+	height       int
 }
 
 var (
@@ -199,7 +199,7 @@ func (c *ReportsComponent) renderWeeklyReport() string {
 	}
 
 	content += lipgloss.NewStyle().Bold(true).Render("Daily Breakdown:") + "\n"
-	for i := 0; i < 7; i++ {
+	for i := range 7 {
 		date := c.weeklyReport.StartDate.AddDate(0, 0, i)
 		dateKey := date.Format("2006-01-02")
 		duration := c.weeklyReport.ByDay[dateKey]
