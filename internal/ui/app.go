@@ -623,10 +623,6 @@ func (m *App) startTimerWithTags(projectID, taskID *string, description string, 
 	}
 }
 
-func (m *App) startTimerWithDescription(projectID, taskID *string, description string) tea.Cmd {
-	return m.startTimerWithTags(projectID, taskID, description, nil)
-}
-
 func (m *App) stopTimer() tea.Msg {
 	entry, alreadyStopped, err := m.timerService.StopTimer()
 	if err != nil {
@@ -637,33 +633,6 @@ func (m *App) stopTimer() tea.Msg {
 	}
 
 	return TimerStoppedMsg{Entry: entry}
-}
-
-func (m *App) updateTimerDescription(description string) tea.Cmd {
-	return func() tea.Msg {
-		if m.timerService.GetState().CurrentEntry == nil {
-			return ErrorMsg{Err: fmt.Errorf("no timer entry to update")}
-		}
-
-		entryID := m.timerService.GetState().CurrentEntry.ID
-		currentEntry := m.timerService.GetState().CurrentEntry
-
-		req := api.TimeEntryRequest{
-			Start:       currentEntry.TimeInterval.Start,
-			End:         currentEntry.TimeInterval.End,
-			Description: description,
-			ProjectID:   currentEntry.ProjectID,
-			TaskID:      currentEntry.TaskID,
-			TagIDs:      currentEntry.TagIDs,
-		}
-
-		entry, err := m.timerService.UpdateTimeEntry(entryID, req)
-		if err != nil {
-			return ErrorMsg{Err: err}
-		}
-
-		return TimerDescriptionUpdatedMsg{Entry: entry}
-	}
 }
 
 func (m *App) updateTimerDescriptionAndTags(description string, tagIDs []string) tea.Cmd {
