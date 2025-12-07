@@ -78,3 +78,67 @@ func FormatDuration(d time.Duration) string {
 	}
 	return fmt.Sprintf("%ds", seconds)
 }
+
+type TimerService struct {
+	apiClient *api.Client
+	state     *TimerState
+}
+
+func NewTimerService(client *api.Client, state *TimerState) *TimerService {
+	return &TimerService{
+		apiClient: client,
+		state:     state,
+	}
+}
+
+func (s *TimerService) GetCurrentTimer() (*api.TimeEntry, error) {
+	return s.apiClient.GetCurrentTimer()
+}
+
+func (s *TimerService) StartTimer(description string, projectID, taskID *string, tagIDs []string) (*api.TimeEntry, error) {
+	entry, err := s.apiClient.StartTimer(description, projectID, taskID, tagIDs)
+	if err != nil {
+		return nil, err
+	}
+	s.state.Start(entry)
+	return entry, nil
+}
+
+func (s *TimerService) StopTimer() (*api.TimeEntry, bool, error) {
+	currentEntry, err := s.apiClient.GetCurrentTimer()
+	if err != nil {
+		return nil, false, err
+	}
+	if currentEntry == nil {
+		s.state.Stop()
+		return nil, true, nil
+	}
+
+	entry, err := s.apiClient.StopTimer()
+	if err != nil {
+		return nil, false, err
+	}
+
+	s.state.Stop()
+	return entry, false, nil
+}
+
+func (s *TimerService) UpdateTimeEntry(entryID string, req api.TimeEntryRequest) (*api.TimeEntry, error) {
+	entry, err := s.apiClient.UpdateTimeEntry(entryID, req)
+	if err != nil {
+		return nil, err
+	}
+
+	s.state.Description = entry.Description
+	s.state.TagIDs = entry.TagIDs
+	if s.state.CurrentEntry != nil {
+		s.state.CurrentEntry.Description = entry.Description
+		s.state.CurrentEntry.TagIDs = entry.TagIDs
+	}
+
+	return entry, nil
+}
+
+func (s *TimerService) GetState() *TimerState {
+	return s.state
+}

@@ -8,6 +8,7 @@ import (
 	"main/internal/cache"
 	"main/internal/domain"
 	"main/internal/ui/components"
+	"main/internal/ui/theme"
 	"main/internal/ui/views"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -16,9 +17,7 @@ import (
 )
 
 type App struct {
-	apiClient *api.Client
-
-	timerService   *domain.TimerState
+	timerService   *domain.TimerService
 	entryService   *domain.TimeEntryService
 	reportService  *domain.ReportService
 	projectService *domain.ProjectService
@@ -50,10 +49,10 @@ type App struct {
 func NewApp(client *api.Client) *App {
 	cacheInstance := cache.NewCache(5 * time.Minute)
 	timerState := domain.NewTimerState()
+	timerService := domain.NewTimerService(client, timerState)
 
 	return &App{
-		apiClient:      client,
-		timerService:   timerState,
+		timerService:   timerService,
 		entryService:   domain.NewTimeEntryService(client),
 		reportService:  domain.NewReportService(client),
 		projectService: domain.NewProjectService(client, cacheInstance),
@@ -159,22 +158,23 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case key.Matches(msg, m.keys.ToggleView):
-			if m.currentView == EntriesView {
+			switch m.currentView {
+			case EntriesView:
 				m.entriesView.ToggleViewMode()
 				return m, m.loadEntries()
-			} else if m.currentView == ReportsView {
+			case ReportsView:
 				m.reportsView.ToggleReportType()
 				return m, m.loadReports()
 			}
 
 		case key.Matches(msg, m.keys.StartTimer):
-			if m.currentView == TimerView && !m.timerService.IsRunning {
+			if m.currentView == TimerView && !m.timerService.GetState().IsRunning {
 				m.timerView.ShowProjectSelector()
 				return m, nil
 			}
 
 		case key.Matches(msg, m.keys.StopTimer):
-			if m.currentView == TimerView && m.timerService.IsRunning {
+			if m.currentView == TimerView && m.timerService.GetState().IsRunning {
 				return m, m.stopTimer
 			}
 
@@ -186,7 +186,7 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keys.EditDescription):
 			if m.currentView == TimerView {
-				if m.timerService.IsRunning {
+				if m.timerService.GetState().IsRunning {
 					m.timerView.GetTimerComponent().StartEditingDescription()
 					return m, nil
 				} else {
@@ -200,25 +200,25 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tickCmd()
 
 	case TimerStartedMsg:
-		m.timerService.Start(msg.Entry)
+		m.timerService.GetState().Start(msg.Entry)
 		m.statusBar.SetSuccess("Timer started")
 		return m, nil
 
 	case TimerStoppedMsg:
-		m.timerService.Stop()
+		m.timerService.GetState().Stop()
 		m.timerView.GetTimerComponent().ClearEditState()
 		m.statusBar.SetSuccess("Timer stopped")
 		return m, nil
 
 	case TimerAlreadyStoppedMsg:
-		m.timerService.Stop()
+		m.timerService.GetState().Stop()
 		m.timerView.GetTimerComponent().ClearEditState()
 		m.statusBar.SetError(fmt.Errorf("timer was already stopped by other instance"))
 		return m, nil
 
 	case TimerDescriptionUpdatedMsg:
-		m.timerService.Description = msg.Entry.Description
-		m.timerService.TagIDs = msg.Entry.TagIDs
+		m.timerService.GetState().Description = msg.Entry.Description
+		m.timerService.GetState().TagIDs = msg.Entry.TagIDs
 		m.statusBar.SetSuccess("Description and tags updated")
 		return m, nil
 
@@ -289,8 +289,8 @@ func (m App) handleDescriptionEditKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		timerComp.CancelEditingDescription()
 
 		currentTagIDs := []string{}
-		if m.timerService.CurrentEntry != nil {
-			currentTagIDs = m.timerService.CurrentEntry.TagIDs
+		if m.timerService.GetState().CurrentEntry != nil {
+			currentTagIDs = m.timerService.GetState().CurrentEntry.TagIDs
 		}
 
 		m.timerView.ShowTagSelectorForEditing(newDescription, currentTagIDs, m.tags)
@@ -467,15 +467,16 @@ func (m App) renderTabs() string {
 	entriesTab := "Entries"
 	reportsTab := "Reports"
 
-	if m.currentView == TimerView {
+	switch m.currentView {
+	case TimerView:
 		tabs = append(tabs, ActiveTabStyle.Render(timerTab))
 		tabs = append(tabs, InactiveTabStyle.Render(entriesTab))
 		tabs = append(tabs, InactiveTabStyle.Render(reportsTab))
-	} else if m.currentView == EntriesView {
+	case EntriesView:
 		tabs = append(tabs, InactiveTabStyle.Render(timerTab))
 		tabs = append(tabs, ActiveTabStyle.Render(entriesTab))
 		tabs = append(tabs, InactiveTabStyle.Render(reportsTab))
-	} else {
+	default:
 		tabs = append(tabs, InactiveTabStyle.Render(timerTab))
 		tabs = append(tabs, InactiveTabStyle.Render(entriesTab))
 		tabs = append(tabs, ActiveTabStyle.Render(reportsTab))
@@ -499,21 +500,21 @@ func (m App) renderReportsView() string {
 func (m App) renderHelp() string {
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#7C3AED")).
+		Foreground(theme.PrimaryColor).
 		MarginBottom(1).
 		Align(lipgloss.Center)
 
 	sectionStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#3B82F6")).
+		Foreground(theme.BlueColor).
 		MarginTop(1)
 
 	keyStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#10B981")).
+		Foreground(theme.GreenColor).
 		Bold(true)
 
 	descStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#E5E7EB"))
+		Foreground(theme.TextColor)
 
 	helpContent := titleStyle.Render("⌨  Keyboard Shortcuts") + "\n\n"
 
@@ -546,13 +547,13 @@ func (m App) renderHelp() string {
 	helpContent += "  " + keyStyle.Render("Esc") + " " + descStyle.Render("Go back or cancel") + "\n"
 
 	helpContent += "\n\n" + lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6B7280")).
+		Foreground(theme.MutedColor).
 		Italic(true).
 		Render("Press ? or Esc to close this help screen")
 
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#7C3AED")).
+		BorderForeground(theme.PrimaryColor).
 		Padding(2, 4).
 		Width(m.width - 4).
 		Height(m.height - 2)
@@ -567,7 +568,7 @@ func tickCmd() tea.Cmd {
 }
 
 func (m *App) loadCurrentTimer() tea.Msg {
-	entry, err := m.apiClient.GetCurrentTimer()
+	entry, err := m.timerService.GetCurrentTimer()
 	if err != nil {
 		return ErrorMsg{Err: err}
 	}
@@ -613,7 +614,7 @@ func (m *App) loadTasksForProject(projectID string) tea.Cmd {
 
 func (m *App) startTimerWithTags(projectID, taskID *string, description string, tagIDs []string) tea.Cmd {
 	return func() tea.Msg {
-		entry, err := m.apiClient.StartTimer(description, projectID, taskID, tagIDs)
+		entry, err := m.timerService.StartTimer(description, projectID, taskID, tagIDs)
 		if err != nil {
 			return ErrorMsg{Err: err}
 		}
@@ -627,16 +628,12 @@ func (m *App) startTimerWithDescription(projectID, taskID *string, description s
 }
 
 func (m *App) stopTimer() tea.Msg {
-	currentEntry, err := m.apiClient.GetCurrentTimer()
+	entry, alreadyStopped, err := m.timerService.StopTimer()
 	if err != nil {
 		return ErrorMsg{Err: err}
 	}
-	if currentEntry == nil  {
+	if alreadyStopped {
 		return TimerAlreadyStoppedMsg{}
-	}
-	entry, err := m.apiClient.StopTimer()
-	if err != nil {
-		return ErrorMsg{Err: err}
 	}
 
 	return TimerStoppedMsg{Entry: entry}
@@ -644,12 +641,12 @@ func (m *App) stopTimer() tea.Msg {
 
 func (m *App) updateTimerDescription(description string) tea.Cmd {
 	return func() tea.Msg {
-		if m.timerService.CurrentEntry == nil {
+		if m.timerService.GetState().CurrentEntry == nil {
 			return ErrorMsg{Err: fmt.Errorf("no timer entry to update")}
 		}
 
-		entryID := m.timerService.CurrentEntry.ID
-		currentEntry := m.timerService.CurrentEntry
+		entryID := m.timerService.GetState().CurrentEntry.ID
+		currentEntry := m.timerService.GetState().CurrentEntry
 
 		req := api.TimeEntryRequest{
 			Start:       currentEntry.TimeInterval.Start,
@@ -660,7 +657,7 @@ func (m *App) updateTimerDescription(description string) tea.Cmd {
 			TagIDs:      currentEntry.TagIDs,
 		}
 
-		entry, err := m.apiClient.UpdateTimeEntry(entryID, req)
+		entry, err := m.timerService.UpdateTimeEntry(entryID, req)
 		if err != nil {
 			return ErrorMsg{Err: err}
 		}
@@ -671,12 +668,12 @@ func (m *App) updateTimerDescription(description string) tea.Cmd {
 
 func (m *App) updateTimerDescriptionAndTags(description string, tagIDs []string) tea.Cmd {
 	return func() tea.Msg {
-		if m.timerService.CurrentEntry == nil {
+		if m.timerService.GetState().CurrentEntry == nil {
 			return ErrorMsg{Err: fmt.Errorf("no timer entry to update")}
 		}
 
-		entryID := m.timerService.CurrentEntry.ID
-		currentEntry := m.timerService.CurrentEntry
+		entryID := m.timerService.GetState().CurrentEntry.ID
+		currentEntry := m.timerService.GetState().CurrentEntry
 
 		req := api.TimeEntryRequest{
 			Start:       currentEntry.TimeInterval.Start,
@@ -687,7 +684,7 @@ func (m *App) updateTimerDescriptionAndTags(description string, tagIDs []string)
 			TagIDs:      tagIDs,
 		}
 
-		entry, err := m.apiClient.UpdateTimeEntry(entryID, req)
+		entry, err := m.timerService.UpdateTimeEntry(entryID, req)
 		if err != nil {
 			return ErrorMsg{Err: err}
 		}
