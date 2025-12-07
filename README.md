@@ -229,4 +229,4 @@ For issues, questions, or suggestions:
 
 ---
 
-**Made with ❤️ for the command line**
+*This application provides a text-based interface for interacting with an external service through its API. By using this tool, you acknowledge that any actions you perform may affect the behavior, configuration, or data of that service. Use this application at your own risk. The developer is not responsible for any unintended consequences, errors, data loss, or service disruptions resulting from its use.*
