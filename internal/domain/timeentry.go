@@ -45,3 +45,7 @@ func (s *TimeEntryService) GetDurationForEntry(entry *api.TimeEntry) time.Durati
 	}
 	return time.Since(entry.TimeInterval.Start)
 }
+
+func (s *TimeEntryService) GetEntriesByDescriptionContains(description string) ([]api.TimeEntry, error) {
+	return s.apiClient.GetTimeEntriesWithDescriptionContaining(description)
+}

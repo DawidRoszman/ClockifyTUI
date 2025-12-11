@@ -77,3 +77,7 @@ type RefreshMsg struct{}
 type TimerDescriptionUpdatedMsg struct {
 	Entry *api.TimeEntry
 }
+
+type DescriptionSuggestionsLoadedMsg struct {
+	Suggestions []string
+}

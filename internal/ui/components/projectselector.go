@@ -1,10 +1,12 @@
 package components
 
 import (
-	"github.com/charmbracelet/lipgloss"
+	"slices"
+
 	"main/internal/api"
 	"main/internal/ui/theme"
-	"slices"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 type SelectorMode int
@@ -17,18 +19,21 @@ const (
 )
 
 type ProjectSelectorComponent struct {
-	projects         []api.Project
-	tasks            []api.Task
-	tags             []api.Tag
-	selectedProject  int
-	selectedTask     int
-	selectedTags     map[int]bool
-	currentTagCursor int
-	mode             SelectorMode
-	filterInput      string
-	description      string
-	width            int
-	height           int
+	projects           []api.Project
+	tasks              []api.Task
+	tags               []api.Tag
+	selectedProject    int
+	selectedTask       int
+	selectedTags       map[int]bool
+	currentTagCursor   int
+	mode               SelectorMode
+	filterInput        string
+	description        string
+	width              int
+	height             int
+	suggestions        []string
+	selectedSuggestion int
+	showSuggestions    bool
 }
 
 var (
@@ -233,13 +238,55 @@ func (c *ProjectSelectorComponent) ConfirmDescription() (projectID, taskID, desc
 func (c *ProjectSelectorComponent) AddChar(char rune) {
 	if c.mode == EnteringDescription {
 		c.description += string(char)
+		c.showSuggestions = len(c.description) >= 3
+		c.selectedSuggestion = 0
 	}
 }
 
 func (c *ProjectSelectorComponent) DeleteChar() {
 	if c.mode == EnteringDescription && len(c.description) > 0 {
 		c.description = c.description[:len(c.description)-1]
+		c.showSuggestions = len(c.description) >= 3
+		c.selectedSuggestion = 0
 	}
+}
+
+func (c *ProjectSelectorComponent) SetSuggestions(suggestions []string) {
+	c.suggestions = suggestions
+	if len(suggestions) == 0 {
+		c.showSuggestions = false
+	}
+}
+
+func (c *ProjectSelectorComponent) GetDescription() string {
+	return c.description
+}
+
+func (c *ProjectSelectorComponent) SelectCurrentSuggestion() {
+	if c.showSuggestions && c.selectedSuggestion >= 0 && c.selectedSuggestion < len(c.suggestions) {
+		c.description = c.suggestions[c.selectedSuggestion]
+		c.showSuggestions = false
+	}
+}
+
+func (c *ProjectSelectorComponent) MoveSuggestionUp() {
+	if c.showSuggestions && len(c.suggestions) > 0 {
+		if c.selectedSuggestion > 0 {
+			c.selectedSuggestion--
+		}
+	}
+}
+
+func (c *ProjectSelectorComponent) MoveSuggestionDown() {
+	if c.showSuggestions && len(c.suggestions) > 0 {
+		if c.selectedSuggestion < len(c.suggestions)-1 {
+			c.selectedSuggestion++
+		}
+	}
+}
+
+func (c *ProjectSelectorComponent) IsShowingSuggestions() bool {
+	return c.showSuggestions && len(c.suggestions) > 0
 }
 
 func (c *ProjectSelectorComponent) GetMode() SelectorMode {
@@ -254,6 +301,9 @@ func (c *ProjectSelectorComponent) Reset() {
 	c.currentTagCursor = 0
 	c.tasks = nil
 	c.description = ""
+	c.suggestions = nil
+	c.selectedSuggestion = 0
+	c.showSuggestions = false
 }
 
 func (c *ProjectSelectorComponent) GetSelectedProjectID() *string {
@@ -354,6 +404,28 @@ func (c *ProjectSelectorComponent) renderDescriptionInput() string {
 		content += inputStyle.Render(c.description) + "█" + "\n"
 	}
 
+	if c.IsShowingSuggestions() {
+		content += "\n"
+		suggestionTitleStyle := lipgloss.NewStyle().
+			Foreground(theme.MauveColor).
+			Bold(true)
+		content += suggestionTitleStyle.Render("Suggestions:") + "\n"
+
+		maxSuggestions := 5
+		visibleSuggestions := c.suggestions
+		if len(visibleSuggestions) > maxSuggestions {
+			visibleSuggestions = visibleSuggestions[:maxSuggestions]
+		}
+
+		for i, suggestion := range visibleSuggestions {
+			if i == c.selectedSuggestion {
+				content += selectorSelectedStyle.Render("▶ "+suggestion) + "\n"
+			} else {
+				content += selectorItemStyle.Render(suggestion) + "\n"
+			}
+		}
+	}
+
 	content += "\n"
 
 	projectName := "Unknown"
@@ -369,7 +441,13 @@ func (c *ProjectSelectorComponent) renderDescriptionInput() string {
 		content += summaryStyle.Render("Task: "+taskName) + "\n"
 	}
 
-	content += "\n" + lipgloss.NewStyle().Foreground(theme.Subtext0Color).Render("enter: start timer | esc: back")
+	helpText := ""
+	if c.IsShowingSuggestions() {
+		helpText = "↑/↓ or ctrl-p/ctrl-n: navigate | enter: select | tab: continue | esc: back"
+	} else {
+		helpText = "enter: continue | esc: back"
+	}
+	content += "\n" + lipgloss.NewStyle().Foreground(theme.Subtext0Color).Render(helpText)
 
 	return selectorBoxStyle.Width(c.width - 4).Render(content)
 }

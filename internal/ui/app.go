@@ -275,6 +275,10 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case DescriptionSuggestionsLoadedMsg:
+		m.timerView.GetProjectSelector().SetSuggestions(msg.Suggestions)
+		return m, nil
+
 	case ErrorMsg:
 		m.statusBar.SetError(msg.Err)
 		return m, nil
@@ -369,14 +373,44 @@ func (m App) handleSelectorKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if selector.GetMode() == components.EnteringDescription {
+		if selector.IsShowingSuggestions() {
+			switch msg.Type {
+			case tea.KeyUp:
+				selector.MoveSuggestionUp()
+				return m, nil
+
+			case tea.KeyDown:
+				selector.MoveSuggestionDown()
+				return m, nil
+
+			case tea.KeyCtrlP:
+				selector.MoveSuggestionUp()
+				return m, nil
+
+			case tea.KeyCtrlN:
+				selector.MoveSuggestionDown()
+				return m, nil
+
+			case tea.KeyEnter:
+				selector.SelectCurrentSuggestion()
+				return m, nil
+
+			case tea.KeyTab:
+				selector.TransitionToTagSelection()
+				return m, nil
+			}
+		}
+
 		switch msg.Type {
 		case tea.KeyEnter:
-			selector.TransitionToTagSelection()
+			if !selector.IsShowingSuggestions() {
+				selector.TransitionToTagSelection()
+			}
 			return m, nil
 
 		case tea.KeyBackspace:
 			selector.DeleteChar()
-			return m, nil
+			return m, m.loadDescriptionSuggestions(selector.GetDescription())
 
 		case tea.KeyEsc:
 			if selector.Back() {
@@ -386,13 +420,13 @@ func (m App) handleSelectorKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		case tea.KeySpace:
 			selector.AddChar(' ')
-			return m, nil
+			return m, m.loadDescriptionSuggestions(selector.GetDescription())
 
 		case tea.KeyRunes:
 			for _, r := range msg.Runes {
 				selector.AddChar(r)
 			}
-			return m, nil
+			return m, m.loadDescriptionSuggestions(selector.GetDescription())
 		}
 		return m, nil
 	}
@@ -754,4 +788,36 @@ func (m *App) refresh() tea.Cmd {
 	default:
 		return m.loadCurrentTimer
 	}
+}
+
+func (m *App) loadDescriptionSuggestions(description string) tea.Cmd {
+	if len(description) < 3 {
+		return func() tea.Msg {
+			return DescriptionSuggestionsLoadedMsg{Suggestions: []string{}}
+		}
+	}
+
+	return func() tea.Msg {
+		entries, err := m.entryService.GetEntriesByDescriptionContains(description)
+		if err != nil {
+			return DescriptionSuggestionsLoadedMsg{Suggestions: []string{}}
+		}
+
+		uniqueDescriptions := extractUniqueDescriptions(entries)
+		return DescriptionSuggestionsLoadedMsg{Suggestions: uniqueDescriptions}
+	}
+}
+
+func extractUniqueDescriptions(entries []api.TimeEntry) []string {
+	seen := make(map[string]bool)
+	var unique []string
+
+	for _, entry := range entries {
+		if entry.Description != "" && !seen[entry.Description] {
+			seen[entry.Description] = true
+			unique = append(unique, entry.Description)
+		}
+	}
+
+	return unique
 }

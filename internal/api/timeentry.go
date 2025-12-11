@@ -19,6 +19,19 @@ func (c *Client) GetTimeEntries(start, end time.Time) ([]TimeEntry, error) {
 	return entries, nil
 }
 
+func (c *Client) GetTimeEntriesWithDescriptionContaining(description string) ([]TimeEntry, error) {
+	path := fmt.Sprintf("/workspaces/%s/user/%s/time-entries?description=%s",
+		c.workspaceID,
+		c.userID,
+		description)
+
+	var entries []TimeEntry
+	if err := c.get(path, &entries); err != nil {
+		return nil, fmt.Errorf("failed to get time entries: %w", err)
+	}
+	return entries, nil
+}
+
 func (c *Client) GetCurrentTimer() (*TimeEntry, error) {
 	path := fmt.Sprintf("/workspaces/%s/user/%s/time-entries?in-progress=true",
 		c.workspaceID,
