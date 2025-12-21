@@ -172,6 +172,9 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.timerView.ShowProjectSelector()
 				return m, nil
 			}
+			if m.currentView == EntriesView {
+				return m.startTimerFromSelectedEntry()
+			}
 
 		case key.Matches(msg, m.keys.StopTimer):
 			if m.currentView == TimerView && m.timerService.GetState().IsRunning {
@@ -621,6 +624,26 @@ func (m *App) startTimerWithTags(projectID, taskID *string, description string, 
 
 		return TimerStartedMsg{Entry: entry}
 	}
+}
+
+func (m *App) startTimerFromSelectedEntry() (*App, tea.Cmd) {
+	selectedEntry := m.entriesView.GetSelectedEntry()
+	if selectedEntry == nil {
+		m.statusBar.SetError(fmt.Errorf("no entry selected"))
+		return m, nil
+	}
+
+	// Extract all properties from the selected entry
+	description := selectedEntry.Description
+	projectID := selectedEntry.ProjectID
+	taskID := selectedEntry.TaskID
+	tagIDs := selectedEntry.TagIDs
+	if tagIDs == nil {
+		tagIDs = []string{}
+	}
+
+	m.statusBar.SetInfo("Starting timer from entry...")
+	return m, m.startTimerWithTags(projectID, taskID, description, tagIDs)
 }
 
 func (m *App) stopTimer() tea.Msg {

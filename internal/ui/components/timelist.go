@@ -112,6 +112,13 @@ func (c *EntriesComponent) PrevItem() {
 	}
 }
 
+func (c *EntriesComponent) GetSelectedEntry() *api.TimeEntry {
+	if len(c.entries) == 0 || c.selectedIndex < 0 || c.selectedIndex >= len(c.entries) {
+		return nil
+	}
+	return &c.entries[c.selectedIndex]
+}
+
 func (c *EntriesComponent) View() string {
 	if len(c.entries) == 0 {
 		return c.renderEmpty()
@@ -141,7 +148,7 @@ func (c *EntriesComponent) View() string {
 	}
 
 	helpText := lipgloss.NewStyle().Foreground(theme.Subtext0Color).
-		Render(fmt.Sprintf("↑/↓: navigate | t: toggle view (%d entries)", len(c.entries)))
+		Render(fmt.Sprintf("↑/↓: navigate | t: toggle view | s: start timer (%d entries)", len(c.entries)))
 
 	return content + "\n" + helpText
 }
