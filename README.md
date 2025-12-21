@@ -169,6 +169,7 @@ go build -ldflags="-s -w" -o clockify-tui cmd/clockify-tui/main.go
 - Shows associated project and task names
 - Keyboard navigation through entries
 - Handles empty states gracefully
+- Start new entry using currently focused entry using 's'
 
 ### Reports
 - **Daily Reports**: Hours by project and task for a specific day
