@@ -58,6 +58,10 @@ func (v *EntriesView) MoveDown() {
 	v.entriesComponent.NextItem()
 }
 
+func (v *EntriesView) GetSelectedEntry() *api.TimeEntry {
+	return v.entriesComponent.GetSelectedEntry()
+}
+
 func (v *EntriesView) Update(msg tea.Msg) (*EntriesView, tea.Cmd) {
 	return v, nil
 }
