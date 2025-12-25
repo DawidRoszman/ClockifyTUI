@@ -1,14 +1,12 @@
 package ui
 
 import (
-	"fmt"
 	"time"
 
 	"main/internal/api"
 	"main/internal/cache"
 	"main/internal/domain"
 	"main/internal/ui/components"
-	"main/internal/ui/theme"
 	"main/internal/ui/views"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -17,11 +15,12 @@ import (
 )
 
 type App struct {
-	timerService   *domain.TimerService
+	apiClient *api.Client
+
+	timerService   *domain.TimerState
 	entryService   *domain.TimeEntryService
 	reportService  *domain.ReportService
 	projectService *domain.ProjectService
-	tagService     *domain.TagService
 
 	currentView ViewType
 	width       int
@@ -34,10 +33,8 @@ type App struct {
 
 	projects    []api.Project
 	entries     []api.TimeEntry
-	tags        []api.Tag
 	projectsMap map[string]string
 	tasksMap    map[string]string
-	tagsMap     map[string]string
 
 	showHelp  bool
 	isLoading bool
@@ -49,14 +46,13 @@ type App struct {
 func NewApp(client *api.Client) *App {
 	cacheInstance := cache.NewCache(5 * time.Minute)
 	timerState := domain.NewTimerState()
-	timerService := domain.NewTimerService(client, timerState)
 
 	return &App{
-		timerService:   timerService,
+		apiClient:      client,
+		timerService:   timerState,
 		entryService:   domain.NewTimeEntryService(client),
 		reportService:  domain.NewReportService(client),
 		projectService: domain.NewProjectService(client, cacheInstance),
-		tagService:     domain.NewTagService(client, cacheInstance),
 		currentView:    TimerView,
 		timerView:      views.NewTimerView(timerState),
 		entriesView:    views.NewEntriesView(),
@@ -64,7 +60,6 @@ func NewApp(client *api.Client) *App {
 		statusBar:      components.NewStatusBar(),
 		projectsMap:    make(map[string]string),
 		tasksMap:       make(map[string]string),
-		tagsMap:        make(map[string]string),
 		keys:           DefaultKeyMap(),
 	}
 }
@@ -74,312 +69,148 @@ func (m App) Init() tea.Cmd {
 		tickCmd(),
 		m.loadCurrentTimer,
 		m.loadProjects,
-		m.loadTags,
 	)
 }
 
 func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		return m.handleWindowSizeMsg(msg)
+		m.width = msg.Width
+		m.height = msg.Height
+		m.statusBar.SetWidth(m.width)
+		m.timerView.SetSize(m.width, m.height)
+		m.entriesView.SetSize(m.width, m.height)
+		m.reportsView.SetSize(m.width, m.height)
+		return m, nil
+
 	case tea.KeyMsg:
-		return m.handleKeyMsg(msg)
-	case TickMsg:
-		return m, tickCmd()
-	case TimerStartedMsg, TimerStoppedMsg, TimerAlreadyStoppedMsg, TimerDescriptionUpdatedMsg:
-		return m.handleTimerMsg(msg)
-	case ProjectsLoadedMsg, TasksLoadedMsg, TagsLoadedMsg, TimeEntriesLoadedMsg:
-		return m.handleDataLoadedMsg(msg)
-	case DailyReportLoadedMsg, WeeklyReportLoadedMsg:
-		return m.handleReportMsg(msg)
-	case DescriptionSuggestionsLoadedMsg:
-		return m.handleDescriptionSuggestionsMsg(msg)
-	case ErrorMsg:
-		return m.handleErrorMsg(msg)
-	}
-
-	return m, nil
-}
-
-func (m App) handleWindowSizeMsg(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
-	m.width = msg.Width
-	m.height = msg.Height
-	m.statusBar.SetWidth(m.width)
-	m.timerView.SetSize(m.width, m.height)
-	m.entriesView.SetSize(m.width, m.height)
-	m.reportsView.SetSize(m.width, m.height)
-	return m, nil
-}
-
-func (m App) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.showHelp {
-		return m.handleHelpKeys(msg)
-	}
-
-	if m.currentView == TimerView {
-		if m.timerView.IsShowingSelector() {
-			return m.handleSelectorKeys(msg)
-		}
-		if m.timerView.GetTimerComponent().IsEditingDescription() {
-			return m.handleDescriptionEditKeys(msg)
-		}
-	}
-
-	return m.handleGlobalKeys(msg)
-}
-
-func (m App) handleHelpKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if key.Matches(msg, m.keys.Help) || key.Matches(msg, m.keys.Back) || key.Matches(msg, m.keys.Quit) {
-		m.showHelp = false
-		return m, nil
-	}
-	return m, nil
-}
-
-func (m App) handleGlobalKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.Help):
-		m.showHelp = true
-		return m, nil
-
-	case key.Matches(msg, m.keys.Quit):
-		return m, tea.Quit
-
-	case key.Matches(msg, m.keys.SwitchToTimer):
-		return m.handleSwitchToTimer()
-
-	case key.Matches(msg, m.keys.SwitchToEntries):
-		return m.handleSwitchToEntries()
-
-	case key.Matches(msg, m.keys.SwitchToReports):
-		return m.handleSwitchToReports()
-
-	case key.Matches(msg, m.keys.Refresh):
-		return m, m.refresh()
-
-	case key.Matches(msg, m.keys.Left):
-		return m.handleLeftKey()
-
-	case key.Matches(msg, m.keys.Right):
-		return m.handleRightKey()
-
-	case key.Matches(msg, m.keys.Up):
-		return m.handleUpKey()
-
-	case key.Matches(msg, m.keys.Down):
-		return m.handleDownKey()
-
-	case key.Matches(msg, m.keys.ToggleView):
-		return m.handleToggleView()
-
-	case key.Matches(msg, m.keys.StartTimer):
-		return m.handleStartTimer()
-
-	case key.Matches(msg, m.keys.StopTimer):
-		return m.handleStopTimer()
-
-	case key.Matches(msg, m.keys.SelectProject):
-		return m.handleSelectProject()
-
-	case key.Matches(msg, m.keys.EditDescription):
-		return m.handleEditDescription()
-	}
-
-	return m, nil
-}
-
-func (m App) handleSwitchToTimer() (tea.Model, tea.Cmd) {
-	m.currentView = TimerView
-	m.statusBar.SetInfo("Switched to Timer view")
-	return m, nil
-}
-
-func (m App) handleSwitchToEntries() (tea.Model, tea.Cmd) {
-	m.currentView = EntriesView
-	m.statusBar.SetInfo("Switched to Entries view")
-	return m, m.loadEntries()
-}
-
-func (m App) handleSwitchToReports() (tea.Model, tea.Cmd) {
-	m.currentView = ReportsView
-	m.statusBar.SetInfo("Switched to Reports view")
-	return m, m.loadReports()
-}
-
-func (m App) handleLeftKey() (tea.Model, tea.Cmd) {
-	if m.currentView == ReportsView {
-		m.reportsView.PrevDate()
-		return m, m.loadReports()
-	}
-	if m.currentView == EntriesView && m.entriesView.GetViewMode() == components.ViewToday {
-		m.entriesView.PrevDate()
-		return m, m.loadEntries()
-	}
-	return m, nil
-}
-
-func (m App) handleRightKey() (tea.Model, tea.Cmd) {
-	if m.currentView == ReportsView {
-		m.reportsView.NextDate()
-		return m, m.loadReports()
-	}
-	if m.currentView == EntriesView && m.entriesView.GetViewMode() == components.ViewToday {
-		m.entriesView.NextDate()
-		return m, m.loadEntries()
-	}
-	return m, nil
-}
-
-func (m App) handleUpKey() (tea.Model, tea.Cmd) {
-	if m.currentView == EntriesView {
-		m.entriesView.MoveUp()
-		return m, nil
-	}
-	return m, nil
-}
-
-func (m App) handleDownKey() (tea.Model, tea.Cmd) {
-	if m.currentView == EntriesView {
-		m.entriesView.MoveDown()
-		return m, nil
-	}
-	return m, nil
-}
-
-func (m App) handleToggleView() (tea.Model, tea.Cmd) {
-	switch m.currentView {
-	case EntriesView:
-		m.entriesView.ToggleViewMode()
-		return m, m.loadEntries()
-	case ReportsView:
-		m.reportsView.ToggleReportType()
-		return m, m.loadReports()
-	}
-	return m, nil
-}
-
-func (m App) handleStartTimer() (tea.Model, tea.Cmd) {
-	if m.currentView == TimerView && !m.timerService.GetState().IsRunning {
-		m.timerView.ShowProjectSelector()
-		return m, nil
-	}
-	if m.currentView == EntriesView {
-		return m.startTimerFromSelectedEntry()
-	}
-	return m, nil
-}
-
-func (m App) handleStopTimer() (tea.Model, tea.Cmd) {
-	if m.currentView == TimerView && m.timerService.GetState().IsRunning {
-		return m, m.stopTimer
-	}
-	return m, nil
-}
-
-func (m App) handleSelectProject() (tea.Model, tea.Cmd) {
-	if m.currentView == TimerView {
-		m.timerView.ShowProjectSelector()
-		return m, nil
-	}
-	return m, nil
-}
-
-func (m App) handleEditDescription() (tea.Model, tea.Cmd) {
-	if m.currentView == TimerView {
-		if m.timerService.GetState().IsRunning {
-			m.timerView.GetTimerComponent().StartEditingDescription()
+		if m.showHelp {
+			if key.Matches(msg, m.keys.Help) || key.Matches(msg, m.keys.Back) || key.Matches(msg, m.keys.Quit) {
+				m.showHelp = false
+				return m, nil
+			}
 			return m, nil
 		}
-		m.statusBar.SetInfo("No timer running to edit")
-		return m, nil
-	}
-	return m, nil
-}
 
-func (m App) handleTimerMsg(msg any) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
+		if m.currentView == TimerView && m.timerView.IsShowingSelector() {
+			return m.handleSelectorKeys(msg)
+		}
+
+		switch {
+		case key.Matches(msg, m.keys.Help):
+			m.showHelp = true
+			return m, nil
+
+		case key.Matches(msg, m.keys.Quit):
+			return m, tea.Quit
+
+		case key.Matches(msg, m.keys.SwitchToTimer):
+			m.currentView = TimerView
+			m.statusBar.SetInfo("Switched to Timer view")
+			return m, nil
+
+		case key.Matches(msg, m.keys.SwitchToEntries):
+			m.currentView = EntriesView
+			m.statusBar.SetInfo("Switched to Entries view")
+			return m, m.loadEntries()
+
+		case key.Matches(msg, m.keys.SwitchToReports):
+			m.currentView = ReportsView
+			m.statusBar.SetInfo("Switched to Reports view")
+			return m, m.loadReports()
+
+		case key.Matches(msg, m.keys.Refresh):
+			return m, m.refresh()
+
+		case key.Matches(msg, m.keys.Left):
+			if m.currentView == ReportsView {
+				m.reportsView.PrevDate()
+				return m, m.loadReports()
+			}
+
+		case key.Matches(msg, m.keys.Right):
+			if m.currentView == ReportsView {
+				m.reportsView.NextDate()
+				return m, m.loadReports()
+			}
+
+		case key.Matches(msg, m.keys.Up):
+			if m.currentView == EntriesView {
+				m.entriesView.MoveUp()
+				return m, nil
+			}
+
+		case key.Matches(msg, m.keys.Down):
+			if m.currentView == EntriesView {
+				m.entriesView.MoveDown()
+				return m, nil
+			}
+
+		case key.Matches(msg, m.keys.ToggleView):
+			if m.currentView == EntriesView {
+				m.entriesView.ToggleViewMode()
+				return m, m.loadEntries()
+			} else if m.currentView == ReportsView {
+				m.reportsView.ToggleReportType()
+				return m, m.loadReports()
+			}
+
+		case key.Matches(msg, m.keys.StartTimer):
+			if m.currentView == TimerView && !m.timerService.IsRunning {
+				m.timerView.ShowProjectSelector()
+				return m, nil
+			}
+
+		case key.Matches(msg, m.keys.StopTimer):
+			if m.currentView == TimerView && m.timerService.IsRunning {
+				return m, m.stopTimer
+			}
+
+		case key.Matches(msg, m.keys.SelectProject):
+			if m.currentView == TimerView {
+				m.timerView.ShowProjectSelector()
+				return m, nil
+			}
+		}
+
+	case TickMsg:
+		return m, tickCmd()
+
 	case TimerStartedMsg:
-		m.timerService.GetState().Start(msg.Entry)
+		m.timerService.Start(msg.Entry)
 		m.statusBar.SetSuccess("Timer started")
 		return m, nil
 
 	case TimerStoppedMsg:
-		m.timerService.GetState().Stop()
-		m.timerView.GetTimerComponent().ClearEditState()
+		m.timerService.Stop()
 		m.statusBar.SetSuccess("Timer stopped")
 		return m, nil
 
-	case TimerAlreadyStoppedMsg:
-		m.timerService.GetState().Stop()
-		m.timerView.GetTimerComponent().ClearEditState()
-		m.statusBar.SetError(fmt.Errorf("timer was already stopped by other instance"))
-		return m, nil
-
-	case TimerDescriptionUpdatedMsg:
-		m.timerService.GetState().Description = msg.Entry.Description
-		m.timerService.GetState().TagIDs = msg.Entry.TagIDs
-		m.statusBar.SetSuccess("Description and tags updated")
-		return m, nil
-	}
-
-	return m, nil
-}
-
-func (m App) handleDataLoadedMsg(msg any) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
 	case ProjectsLoadedMsg:
-		return m.handleProjectsLoaded(msg)
+		m.projects = msg.Projects
+		m.timerView.SetProjects(msg.Projects)
+		projectMap := make(map[string]string)
+		for _, p := range msg.Projects {
+			projectMap[p.ID] = p.Name
+		}
+		m.projectsMap = projectMap
+		m.timerView.SetProjectMap(projectMap)
+		m.entriesView.SetProjects(projectMap)
+		return m, nil
+
 	case TasksLoadedMsg:
-		return m.handleTasksLoaded(msg)
-	case TagsLoadedMsg:
-		return m.handleTagsLoaded(msg)
+		for _, task := range msg.Tasks {
+			m.tasksMap[task.ID] = task.Name
+		}
+		m.timerView.GetProjectSelector().SetTasks(msg.Tasks)
+		m.entriesView.SetTasks(m.tasksMap)
+		return m, nil
+
 	case TimeEntriesLoadedMsg:
 		m.entries = msg.Entries
 		m.entriesView.SetEntries(msg.Entries)
 		return m, nil
-	}
 
-	return m, nil
-}
-
-func (m App) handleProjectsLoaded(msg ProjectsLoadedMsg) (tea.Model, tea.Cmd) {
-	m.projects = msg.Projects
-	m.timerView.SetProjects(msg.Projects)
-	projectMap := make(map[string]string)
-	for _, p := range msg.Projects {
-		projectMap[p.ID] = p.Name
-	}
-	m.projectsMap = projectMap
-	m.timerView.SetProjectMap(projectMap)
-	m.entriesView.SetProjects(projectMap)
-	return m, nil
-}
-
-func (m App) handleTasksLoaded(msg TasksLoadedMsg) (tea.Model, tea.Cmd) {
-	for _, task := range msg.Tasks {
-		m.tasksMap[task.ID] = task.Name
-	}
-	m.timerView.GetProjectSelector().SetTasks(msg.Tasks)
-	m.entriesView.SetTasks(m.tasksMap)
-	return m, nil
-}
-
-func (m App) handleTagsLoaded(msg TagsLoadedMsg) (tea.Model, tea.Cmd) {
-	m.tags = msg.Tags
-	tagMap := make(map[string]string)
-	for _, tag := range msg.Tags {
-		tagMap[tag.ID] = tag.Name
-	}
-	m.tagsMap = tagMap
-	m.timerView.GetProjectSelector().SetTags(msg.Tags)
-	m.timerView.SetTagMap(tagMap)
-	m.entriesView.SetTags(tagMap)
-	m.reportsView.SetTags(tagMap)
-	return m, nil
-}
-
-func (m App) handleReportMsg(msg any) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
 	case DailyReportLoadedMsg:
 		if report, ok := msg.Report.(*domain.DailySummary); ok {
 			m.reportsView.SetDailyReport(report)
@@ -391,53 +222,9 @@ func (m App) handleReportMsg(msg any) (tea.Model, tea.Cmd) {
 			m.reportsView.SetWeeklyReport(report)
 		}
 		return m, nil
-	}
 
-	return m, nil
-}
-
-func (m App) handleDescriptionSuggestionsMsg(msg DescriptionSuggestionsLoadedMsg) (tea.Model, tea.Cmd) {
-	m.timerView.GetProjectSelector().SetSuggestions(msg.Suggestions)
-	return m, nil
-}
-
-func (m App) handleErrorMsg(msg ErrorMsg) (tea.Model, tea.Cmd) {
-	m.statusBar.SetError(msg.Err)
-	return m, nil
-}
-
-func (m App) handleDescriptionEditKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	timerComp := m.timerView.GetTimerComponent()
-
-	switch msg.Type {
-	case tea.KeyEnter:
-		newDescription := timerComp.GetEditedDescription()
-		timerComp.CancelEditingDescription()
-
-		currentTagIDs := []string{}
-		if m.timerService.GetState().CurrentEntry != nil {
-			currentTagIDs = m.timerService.GetState().CurrentEntry.TagIDs
-		}
-
-		m.timerView.ShowTagSelectorForEditing(newDescription, currentTagIDs, m.tags)
-		return m, nil
-
-	case tea.KeyBackspace:
-		timerComp.DeleteCharFromEdit()
-		return m, nil
-
-	case tea.KeyEsc:
-		timerComp.CancelEditingDescription()
-		return m, nil
-
-	case tea.KeySpace:
-		timerComp.AddCharToEdit(' ')
-		return m, nil
-
-	case tea.KeyRunes:
-		for _, r := range msg.Runes {
-			timerComp.AddCharToEdit(r)
-		}
+	case ErrorMsg:
+		m.statusBar.SetError(msg.Err)
 		return m, nil
 	}
 
@@ -447,137 +234,40 @@ func (m App) handleDescriptionEditKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m App) handleSelectorKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	selector := m.timerView.GetProjectSelector()
 
-	switch selector.GetMode() {
-	case components.SelectingTags:
-		return m.handleTagSelectionKeys(msg, selector)
-	case components.EnteringDescription:
-		return m.handleDescriptionEntryKeys(msg, selector)
-	default:
-		return m.handleProjectSelectionKeys(msg, selector)
-	}
-}
+	if selector.GetMode() == components.EnteringDescription {
+		switch msg.Type {
+		case tea.KeyEnter:
+			projectID, taskID, description := selector.ConfirmDescription()
+			if projectID != nil {
+				selector.Reset()
+				m.timerView.HideProjectSelector()
+				return m, m.startTimerWithDescription(projectID, taskID, *description)
+			}
+			return m, nil
 
-func (m App) handleTagSelectionKeys(msg tea.KeyMsg, selector *components.ProjectSelectorComponent) (tea.Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.Up):
-		selector.MoveUp()
-		return m, nil
+		case tea.KeyBackspace:
+			selector.DeleteChar()
+			return m, nil
 
-	case key.Matches(msg, m.keys.Down):
-		selector.MoveDown()
-		return m, nil
+		case tea.KeyEsc:
+			if selector.Back() {
+				m.timerView.HideProjectSelector()
+			}
+			return m, nil
 
-	case key.Matches(msg, m.keys.Space):
-		selector.ToggleCurrentTag()
-		return m, nil
+		case tea.KeySpace:
+			selector.AddChar(' ')
+			return m, nil
 
-	case key.Matches(msg, m.keys.Enter):
-		return m.handleTagSelectionEnter(selector)
-
-	case key.Matches(msg, m.keys.Back):
-		return m.handleTagSelectionBack(selector)
-	}
-
-	return m, nil
-}
-
-func (m App) handleTagSelectionEnter(selector *components.ProjectSelectorComponent) (tea.Model, tea.Cmd) {
-	if m.timerView.IsEditingMode() {
-		newDescription := m.timerView.GetEditedDescription()
-		newTagIDs := selector.GetSelectedTagIDs()
-		selector.Reset()
-		m.timerView.HideProjectSelector()
-		return m, m.updateTimerDescriptionAndTags(newDescription, newTagIDs)
-	}
-
-	projectID, taskID, description, tagIDs := selector.ConfirmTags()
-	if projectID != nil {
-		selector.Reset()
-		m.timerView.HideProjectSelector()
-		return m, m.startTimerWithTags(projectID, taskID, *description, tagIDs)
-	}
-
-	return m, nil
-}
-
-func (m App) handleTagSelectionBack(selector *components.ProjectSelectorComponent) (tea.Model, tea.Cmd) {
-	if m.timerView.IsEditingMode() {
-		m.timerView.HideProjectSelector()
-		return m, nil
-	}
-
-	if selector.Back() {
-		m.timerView.HideProjectSelector()
-	}
-	return m, nil
-}
-
-func (m App) handleDescriptionEntryKeys(msg tea.KeyMsg, selector *components.ProjectSelectorComponent) (tea.Model, tea.Cmd) {
-	if selector.IsShowingSuggestions() {
-		handled, model, cmd := m.handleSuggestionKeys(msg, selector)
-		if handled {
-			return model, cmd
-		}
-	}
-
-	return m.handleDescriptionInputKeys(msg, selector)
-}
-
-func (m App) handleSuggestionKeys(msg tea.KeyMsg, selector *components.ProjectSelectorComponent) (bool, tea.Model, tea.Cmd) {
-	switch msg.Type {
-	case tea.KeyUp, tea.KeyCtrlP:
-		selector.MoveSuggestionUp()
-		return true, m, nil
-
-	case tea.KeyDown, tea.KeyCtrlN:
-		selector.MoveSuggestionDown()
-		return true, m, nil
-
-	case tea.KeyEnter:
-		selector.SelectCurrentSuggestion()
-		return true, m, nil
-
-	case tea.KeyTab:
-		selector.TransitionToTagSelection()
-		return true, m, nil
-	}
-
-	return false, m, nil
-}
-
-func (m App) handleDescriptionInputKeys(msg tea.KeyMsg, selector *components.ProjectSelectorComponent) (tea.Model, tea.Cmd) {
-	switch msg.Type {
-	case tea.KeyEnter:
-		if !selector.IsShowingSuggestions() {
-			selector.TransitionToTagSelection()
+		case tea.KeyRunes:
+			for _, r := range msg.Runes {
+				selector.AddChar(r)
+			}
+			return m, nil
 		}
 		return m, nil
-
-	case tea.KeyBackspace:
-		selector.DeleteChar()
-		return m, m.loadDescriptionSuggestions(selector.GetDescription())
-
-	case tea.KeyEsc:
-		if selector.Back() {
-			m.timerView.HideProjectSelector()
-		}
-		return m, nil
-
-	case tea.KeySpace:
-		selector.AddChar(' ')
-		return m, m.loadDescriptionSuggestions(selector.GetDescription())
-
-	case tea.KeyRunes:
-		for _, r := range msg.Runes {
-			selector.AddChar(r)
-		}
-		return m, m.loadDescriptionSuggestions(selector.GetDescription())
 	}
 
-	return m, nil
-}
-
-func (m App) handleProjectSelectionKeys(msg tea.KeyMsg, selector *components.ProjectSelectorComponent) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Up):
 		selector.MoveUp()
@@ -651,16 +341,15 @@ func (m App) renderTabs() string {
 	entriesTab := "Entries"
 	reportsTab := "Reports"
 
-	switch m.currentView {
-	case TimerView:
+	if m.currentView == TimerView {
 		tabs = append(tabs, ActiveTabStyle.Render(timerTab))
 		tabs = append(tabs, InactiveTabStyle.Render(entriesTab))
 		tabs = append(tabs, InactiveTabStyle.Render(reportsTab))
-	case EntriesView:
+	} else if m.currentView == EntriesView {
 		tabs = append(tabs, InactiveTabStyle.Render(timerTab))
 		tabs = append(tabs, ActiveTabStyle.Render(entriesTab))
 		tabs = append(tabs, InactiveTabStyle.Render(reportsTab))
-	default:
+	} else {
 		tabs = append(tabs, InactiveTabStyle.Render(timerTab))
 		tabs = append(tabs, InactiveTabStyle.Render(entriesTab))
 		tabs = append(tabs, ActiveTabStyle.Render(reportsTab))
@@ -684,21 +373,21 @@ func (m App) renderReportsView() string {
 func (m App) renderHelp() string {
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(theme.PrimaryColor).
+		Foreground(lipgloss.Color("#7C3AED")).
 		MarginBottom(1).
 		Align(lipgloss.Center)
 
 	sectionStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(theme.BlueColor).
+		Foreground(lipgloss.Color("#3B82F6")).
 		MarginTop(1)
 
 	keyStyle := lipgloss.NewStyle().
-		Foreground(theme.GreenColor).
+		Foreground(lipgloss.Color("#10B981")).
 		Bold(true)
 
 	descStyle := lipgloss.NewStyle().
-		Foreground(theme.TextColor)
+		Foreground(lipgloss.Color("#E5E7EB"))
 
 	helpContent := titleStyle.Render("⌨  Keyboard Shortcuts") + "\n\n"
 
@@ -714,32 +403,28 @@ func (m App) renderHelp() string {
 	helpContent += "  " + keyStyle.Render("s") + " " + descStyle.Render("Start timer (opens project selector)") + "\n"
 	helpContent += "  " + keyStyle.Render("x") + " " + descStyle.Render("Stop running timer") + "\n"
 	helpContent += "  " + keyStyle.Render("p") + " " + descStyle.Render("Select project/task") + "\n"
-	helpContent += "  " + keyStyle.Render("d") + " " + descStyle.Render("Edit description & tags of running timer") + "\n"
 
 	helpContent += sectionStyle.Render("Time Entries View") + "\n"
 	helpContent += "  " + keyStyle.Render("↑/↓ or k/j") + " " + descStyle.Render("Navigate entries") + "\n"
-	helpContent += "  " + keyStyle.Render("←/→ or h/l") + " " + descStyle.Render("Navigate days (Today view only)") + "\n"
 	helpContent += "  " + keyStyle.Render("t") + " " + descStyle.Render("Toggle between Today/This Week") + "\n"
-	helpContent += "  " + keyStyle.Render("s") + " " + descStyle.Render("Start timer from focused entry") + "\n"
 
 	helpContent += sectionStyle.Render("Reports View") + "\n"
 	helpContent += "  " + keyStyle.Render("←/→ or h/l") + " " + descStyle.Render("Navigate dates (prev/next day or week)") + "\n"
 	helpContent += "  " + keyStyle.Render("t") + " " + descStyle.Render("Toggle between Daily/Weekly report") + "\n"
 
-	helpContent += sectionStyle.Render("Project/Task/Tag Selector") + "\n"
+	helpContent += sectionStyle.Render("Project/Task Selector") + "\n"
 	helpContent += "  " + keyStyle.Render("↑/↓ or k/j") + " " + descStyle.Render("Navigate list") + "\n"
-	helpContent += "  " + keyStyle.Render("Space") + " " + descStyle.Render("Toggle tag selection (when selecting tags)") + "\n"
-	helpContent += "  " + keyStyle.Render("Enter") + " " + descStyle.Render("Confirm selection") + "\n"
+	helpContent += "  " + keyStyle.Render("Enter") + " " + descStyle.Render("Select item") + "\n"
 	helpContent += "  " + keyStyle.Render("Esc") + " " + descStyle.Render("Go back or cancel") + "\n"
 
 	helpContent += "\n\n" + lipgloss.NewStyle().
-		Foreground(theme.MutedColor).
+		Foreground(lipgloss.Color("#6B7280")).
 		Italic(true).
 		Render("Press ? or Esc to close this help screen")
 
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.PrimaryColor).
+		BorderForeground(lipgloss.Color("#7C3AED")).
 		Padding(2, 4).
 		Width(m.width - 4).
 		Height(m.height - 2)
@@ -754,7 +439,7 @@ func tickCmd() tea.Cmd {
 }
 
 func (m *App) loadCurrentTimer() tea.Msg {
-	entry, err := m.timerService.GetCurrentTimer()
+	entry, err := m.apiClient.GetCurrentTimer()
 	if err != nil {
 		return ErrorMsg{Err: err}
 	}
@@ -798,9 +483,9 @@ func (m *App) loadTasksForProject(projectID string) tea.Cmd {
 	}
 }
 
-func (m *App) startTimerWithTags(projectID, taskID *string, description string, tagIDs []string) tea.Cmd {
+func (m *App) startTimerWithDescription(projectID, taskID *string, description string) tea.Cmd {
 	return func() tea.Msg {
-		entry, err := m.timerService.StartTimer(description, projectID, taskID, tagIDs)
+		entry, err := m.apiClient.StartTimer(description, projectID, taskID)
 		if err != nil {
 			return ErrorMsg{Err: err}
 		}
@@ -809,63 +494,13 @@ func (m *App) startTimerWithTags(projectID, taskID *string, description string, 
 	}
 }
 
-func (m *App) startTimerFromSelectedEntry() (*App, tea.Cmd) {
-	selectedEntry := m.entriesView.GetSelectedEntry()
-	if selectedEntry == nil {
-		m.statusBar.SetError(fmt.Errorf("no entry selected"))
-		return m, nil
-	}
-
-	// Extract all properties from the selected entry
-	description := selectedEntry.Description
-	projectID := selectedEntry.ProjectID
-	taskID := selectedEntry.TaskID
-	tagIDs := selectedEntry.TagIDs
-	if tagIDs == nil {
-		tagIDs = []string{}
-	}
-
-	m.statusBar.SetInfo("Starting timer from entry...")
-	return m, m.startTimerWithTags(projectID, taskID, description, tagIDs)
-}
-
 func (m *App) stopTimer() tea.Msg {
-	entry, alreadyStopped, err := m.timerService.StopTimer()
+	entry, err := m.apiClient.StopTimer()
 	if err != nil {
 		return ErrorMsg{Err: err}
 	}
-	if alreadyStopped {
-		return TimerAlreadyStoppedMsg{}
-	}
 
 	return TimerStoppedMsg{Entry: entry}
-}
-
-func (m *App) updateTimerDescriptionAndTags(description string, tagIDs []string) tea.Cmd {
-	return func() tea.Msg {
-		if m.timerService.GetState().CurrentEntry == nil {
-			return ErrorMsg{Err: fmt.Errorf("no timer entry to update")}
-		}
-
-		entryID := m.timerService.GetState().CurrentEntry.ID
-		currentEntry := m.timerService.GetState().CurrentEntry
-
-		req := api.TimeEntryRequest{
-			Start:       currentEntry.TimeInterval.Start,
-			End:         currentEntry.TimeInterval.End,
-			Description: description,
-			ProjectID:   currentEntry.ProjectID,
-			TaskID:      currentEntry.TaskID,
-			TagIDs:      tagIDs,
-		}
-
-		entry, err := m.timerService.UpdateTimeEntry(entryID, req)
-		if err != nil {
-			return ErrorMsg{Err: err}
-		}
-
-		return TimerDescriptionUpdatedMsg{Entry: entry}
-	}
 }
 
 func (m *App) loadEntries() tea.Cmd {
@@ -874,8 +509,7 @@ func (m *App) loadEntries() tea.Cmd {
 		var err error
 
 		if m.entriesView.GetViewMode() == components.ViewToday {
-			selectedDate := m.entriesView.GetSelectedDate()
-			entries, err = m.entryService.GetEntriesForDate(selectedDate)
+			entries, err = m.entryService.GetEntriesForToday()
 		} else {
 			entries, err = m.entryService.GetEntriesForWeek()
 		}
@@ -920,15 +554,6 @@ func (m *App) loadReports() tea.Cmd {
 	}
 }
 
-func (m *App) loadTags() tea.Msg {
-	tags, err := m.tagService.GetAllTags()
-	if err != nil {
-		return ErrorMsg{Err: err}
-	}
-
-	return TagsLoadedMsg{Tags: tags}
-}
-
 func (m *App) refresh() tea.Cmd {
 	switch m.currentView {
 	case EntriesView:
@@ -938,36 +563,4 @@ func (m *App) refresh() tea.Cmd {
 	default:
 		return m.loadCurrentTimer
 	}
-}
-
-func (m *App) loadDescriptionSuggestions(description string) tea.Cmd {
-	if len(description) < 3 {
-		return func() tea.Msg {
-			return DescriptionSuggestionsLoadedMsg{Suggestions: []string{}}
-		}
-	}
-
-	return func() tea.Msg {
-		entries, err := m.entryService.GetEntriesByDescriptionContains(description)
-		if err != nil {
-			return DescriptionSuggestionsLoadedMsg{Suggestions: []string{}}
-		}
-
-		uniqueDescriptions := extractUniqueDescriptions(entries)
-		return DescriptionSuggestionsLoadedMsg{Suggestions: uniqueDescriptions}
-	}
-}
-
-func extractUniqueDescriptions(entries []api.TimeEntry) []string {
-	seen := make(map[string]bool)
-	var unique []string
-
-	for _, entry := range entries {
-		if entry.Description != "" && !seen[entry.Description] {
-			seen[entry.Description] = true
-			unique = append(unique, entry.Description)
-		}
-	}
-
-	return unique
 }
