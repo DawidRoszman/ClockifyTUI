@@ -96,6 +96,7 @@ export CLOCKIFY_API_KEY="your-api-key-here"
 #### Time Entries View
 - `↑/↓` or `k/j` - Navigate entries
 - `t` - Toggle between Today/This Week
+- `s` - Start timer with same parameters as the currently focused entry
 
 #### Reports View
 - `←/→` or `h/l` - Navigate dates (previous/next day or week)
