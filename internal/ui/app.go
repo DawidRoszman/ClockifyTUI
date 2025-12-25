@@ -211,6 +211,10 @@ func (m App) handleLeftKey() (tea.Model, tea.Cmd) {
 		m.reportsView.PrevDate()
 		return m, m.loadReports()
 	}
+	if m.currentView == EntriesView && m.entriesView.GetViewMode() == components.ViewToday {
+		m.entriesView.PrevDate()
+		return m, m.loadEntries()
+	}
 	return m, nil
 }
 
@@ -218,6 +222,10 @@ func (m App) handleRightKey() (tea.Model, tea.Cmd) {
 	if m.currentView == ReportsView {
 		m.reportsView.NextDate()
 		return m, m.loadReports()
+	}
+	if m.currentView == EntriesView && m.entriesView.GetViewMode() == components.ViewToday {
+		m.entriesView.NextDate()
+		return m, m.loadEntries()
 	}
 	return m, nil
 }
@@ -710,6 +718,7 @@ func (m App) renderHelp() string {
 
 	helpContent += sectionStyle.Render("Time Entries View") + "\n"
 	helpContent += "  " + keyStyle.Render("↑/↓ or k/j") + " " + descStyle.Render("Navigate entries") + "\n"
+	helpContent += "  " + keyStyle.Render("←/→ or h/l") + " " + descStyle.Render("Navigate days (Today view only)") + "\n"
 	helpContent += "  " + keyStyle.Render("t") + " " + descStyle.Render("Toggle between Today/This Week") + "\n"
 	helpContent += "  " + keyStyle.Render("s") + " " + descStyle.Render("Start timer from focused entry") + "\n"
 
@@ -865,7 +874,8 @@ func (m *App) loadEntries() tea.Cmd {
 		var err error
 
 		if m.entriesView.GetViewMode() == components.ViewToday {
-			entries, err = m.entryService.GetEntriesForToday()
+			selectedDate := m.entriesView.GetSelectedDate()
+			entries, err = m.entryService.GetEntriesForDate(selectedDate)
 		} else {
 			entries, err = m.entryService.GetEntriesForWeek()
 		}

@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"time"
 
 	"main/internal/api"
 	"main/internal/domain"
@@ -24,6 +25,7 @@ type EntriesComponent struct {
 	tags          map[string]string
 	selectedIndex int
 	viewMode      EntriesViewMode
+	selectedDate  time.Time
 	width         int
 	height        int
 }
@@ -51,6 +53,7 @@ func NewEntriesComponent() *EntriesComponent {
 	return &EntriesComponent{
 		viewMode:      ViewToday,
 		selectedIndex: 0,
+		selectedDate:  time.Now(),
 		projects:      make(map[string]string),
 		tasks:         make(map[string]string),
 	}
@@ -97,6 +100,7 @@ func (c *EntriesComponent) ToggleViewMode() {
 		c.viewMode = ViewThisWeek
 	} else {
 		c.viewMode = ViewToday
+		c.selectedDate = time.Now()
 	}
 	c.selectedIndex = 0
 }
@@ -118,6 +122,26 @@ func (c *EntriesComponent) GetSelectedEntry() *api.TimeEntry {
 		return nil
 	}
 	return &c.entries[c.selectedIndex]
+}
+
+func (c *EntriesComponent) GetSelectedDate() time.Time {
+	return c.selectedDate
+}
+
+func (c *EntriesComponent) SetSelectedDate(date time.Time) {
+	c.selectedDate = date
+}
+
+func (c *EntriesComponent) NextDate() {
+	if c.viewMode == ViewToday {
+		c.selectedDate = c.selectedDate.AddDate(0, 0, 1)
+	}
+}
+
+func (c *EntriesComponent) PrevDate() {
+	if c.viewMode == ViewToday {
+		c.selectedDate = c.selectedDate.AddDate(0, 0, -1)
+	}
 }
 
 func (c *EntriesComponent) View() string {
@@ -148,8 +172,14 @@ func (c *EntriesComponent) View() string {
 		content += entryView + "\n"
 	}
 
-	helpText := lipgloss.NewStyle().Foreground(theme.Subtext0Color).
-		Render(fmt.Sprintf("↑/↓: navigate | t: toggle view | s: start timer (%d entries)", len(c.entries)))
+	helpText := ""
+	if c.viewMode == ViewToday {
+		helpText = lipgloss.NewStyle().Foreground(theme.Subtext0Color).
+			Render(fmt.Sprintf("↑/↓: navigate | ←/→ or h/l: prev/next day | t: toggle view | s: start timer (%d entries)", len(c.entries)))
+	} else {
+		helpText = lipgloss.NewStyle().Foreground(theme.Subtext0Color).
+			Render(fmt.Sprintf("↑/↓: navigate | t: toggle view | s: start timer (%d entries)", len(c.entries)))
+	}
 
 	return content + "\n" + helpText
 }

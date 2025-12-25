@@ -1,11 +1,14 @@
 package views
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"time"
+
 	"main/internal/api"
 	"main/internal/ui/components"
 	"main/internal/ui/theme"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type EntriesView struct {
@@ -62,6 +65,18 @@ func (v *EntriesView) GetSelectedEntry() *api.TimeEntry {
 	return v.entriesComponent.GetSelectedEntry()
 }
 
+func (v *EntriesView) GetSelectedDate() time.Time {
+	return v.entriesComponent.GetSelectedDate()
+}
+
+func (v *EntriesView) NextDate() {
+	v.entriesComponent.NextDate()
+}
+
+func (v *EntriesView) PrevDate() {
+	v.entriesComponent.PrevDate()
+}
+
 func (v *EntriesView) Update(msg tea.Msg) (*EntriesView, tea.Cmd) {
 	return v, nil
 }
@@ -75,6 +90,17 @@ func (v *EntriesView) View() string {
 	viewModeStr := "Today"
 	if v.entriesComponent.GetViewMode() == components.ViewThisWeek {
 		viewModeStr = "This Week"
+	} else {
+		selectedDate := v.entriesComponent.GetSelectedDate()
+		now := time.Now()
+		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		selectedDay := time.Date(selectedDate.Year(), selectedDate.Month(), selectedDate.Day(), 0, 0, 0, 0, selectedDate.Location())
+		
+		if selectedDay.Equal(today) {
+			viewModeStr = "Today"
+		} else {
+			viewModeStr = selectedDate.Format("Monday, January 2")
+		}
 	}
 
 	content := titleStyle.Render("📋 Time Entries - "+viewModeStr) + "\n\n"

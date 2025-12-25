@@ -23,6 +23,12 @@ func (s *TimeEntryService) GetEntriesForToday() ([]api.TimeEntry, error) {
 	return s.apiClient.GetTimeEntries(start, end)
 }
 
+func (s *TimeEntryService) GetEntriesForDate(date time.Time) ([]api.TimeEntry, error) {
+	start := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	end := start.Add(24 * time.Hour)
+	return s.apiClient.GetTimeEntries(start, end)
+}
+
 func (s *TimeEntryService) GetEntriesForWeek() ([]api.TimeEntry, error) {
 	now := time.Now()
 	weekday := int(now.Weekday())
