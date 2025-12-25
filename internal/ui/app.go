@@ -711,6 +711,7 @@ func (m App) renderHelp() string {
 	helpContent += sectionStyle.Render("Time Entries View") + "\n"
 	helpContent += "  " + keyStyle.Render("↑/↓ or k/j") + " " + descStyle.Render("Navigate entries") + "\n"
 	helpContent += "  " + keyStyle.Render("t") + " " + descStyle.Render("Toggle between Today/This Week") + "\n"
+	helpContent += "  " + keyStyle.Render("s") + " " + descStyle.Render("Start timer from focused entry") + "\n"
 
 	helpContent += sectionStyle.Render("Reports View") + "\n"
 	helpContent += "  " + keyStyle.Render("←/→ or h/l") + " " + descStyle.Render("Navigate dates (prev/next day or week)") + "\n"
