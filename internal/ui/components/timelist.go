@@ -3,10 +3,11 @@ package components
 import (
 	"fmt"
 
-	"github.com/charmbracelet/lipgloss"
 	"main/internal/api"
 	"main/internal/domain"
 	"main/internal/ui/theme"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 type EntriesViewMode int
@@ -167,65 +168,11 @@ func (c *EntriesComponent) renderEmpty() string {
 }
 
 func (c *EntriesComponent) formatEntry(entry *api.TimeEntry, selected bool) string {
-	start := entry.TimeInterval.Start.Local()
-	startTime := start.Format("15:04")
-
-	var duration string
-	if entry.TimeInterval.End != nil {
-		end := entry.TimeInterval.End.Local()
-		endTime := end.Format("15:04")
-		dur := end.Sub(start)
-		duration = domain.FormatDuration(dur)
-		startTime = fmt.Sprintf("%s - %s", startTime, endTime)
-	} else {
-		duration = "Running"
-		startTime = fmt.Sprintf("%s - now", startTime)
-	}
-
-	description := entry.Description
-	if description == "" {
-		description = "(no description)"
-	}
-
-	projectName := ""
-	if entry.ProjectID != nil {
-		if name, ok := c.projects[*entry.ProjectID]; ok {
-			projectName = name
-		} else {
-			projectName = *entry.ProjectID
-		}
-	}
-
-	taskName := ""
-	if entry.TaskID != nil {
-		if name, ok := c.tasks[*entry.TaskID]; ok {
-			taskName = " • " + name
-		}
-	}
-
-	tagsStr := ""
-	if len(entry.TagIDs) > 0 {
-		tagNames := []string{}
-		for _, tagID := range entry.TagIDs {
-			if name, ok := c.tags[tagID]; ok {
-				tagNames = append(tagNames, name)
-			}
-		}
-		if len(tagNames) > 0 {
-			tagStyle := lipgloss.NewStyle().
-				Foreground(theme.MauveColor).
-				Italic(true)
-
-			joinedTags := ""
-			for i, name := range tagNames {
-				if i > 0 {
-					joinedTags += ", "
-				}
-				joinedTags += name
-			}
-			tagsStr = " • " + tagStyle.Render(joinedTags)
-		}
-	}
+	description := c.formatDescription(entry)
+	startTime, duration := c.formatTimeInterval(entry)
+	projectName := c.formatProjectName(entry)
+	taskName := c.formatTaskName(entry)
+	tagsStr := c.formatTags(entry)
 
 	line1 := description
 	line2 := entryTimeStyle.Render(startTime) + " " + entryDurationStyle.Render(duration)
@@ -240,4 +187,75 @@ func (c *EntriesComponent) formatEntry(entry *api.TimeEntry, selected bool) stri
 		return entrySelectedStyle.Render("▶ " + content)
 	}
 	return entryItemStyle.Render(content)
+}
+
+func (c *EntriesComponent) formatDescription(entry *api.TimeEntry) string {
+	if entry.Description == "" {
+		return "(no description)"
+	}
+	return entry.Description
+}
+
+func (c *EntriesComponent) formatTimeInterval(entry *api.TimeEntry) (string, string) {
+	start := entry.TimeInterval.Start.Local()
+	startTime := start.Format("15:04")
+
+	if entry.TimeInterval.End != nil {
+		end := entry.TimeInterval.End.Local()
+		endTime := end.Format("15:04")
+		dur := end.Sub(start)
+		duration := domain.FormatDuration(dur)
+		return fmt.Sprintf("%s - %s", startTime, endTime), duration
+	}
+	return fmt.Sprintf("%s - now", startTime), "Running"
+}
+
+func (c *EntriesComponent) formatProjectName(entry *api.TimeEntry) string {
+	if entry.ProjectID == nil {
+		return ""
+	}
+	if name, ok := c.projects[*entry.ProjectID]; ok {
+		return name
+	}
+	return *entry.ProjectID
+}
+
+func (c *EntriesComponent) formatTaskName(entry *api.TimeEntry) string {
+	if entry.TaskID == nil {
+		return ""
+	}
+	if name, ok := c.tasks[*entry.TaskID]; ok {
+		return " • " + name
+	}
+	return ""
+}
+
+func (c *EntriesComponent) formatTags(entry *api.TimeEntry) string {
+	if len(entry.TagIDs) == 0 {
+		return ""
+	}
+
+	tagNames := []string{}
+	for _, tagID := range entry.TagIDs {
+		if name, ok := c.tags[tagID]; ok {
+			tagNames = append(tagNames, name)
+		}
+	}
+	if len(tagNames) == 0 {
+		return ""
+	}
+
+	tagStyle := lipgloss.NewStyle().
+		Foreground(theme.MauveColor).
+		Italic(true)
+
+	joinedTags := ""
+	for i, name := range tagNames {
+		if i > 0 {
+			joinedTags += ", "
+		}
+		joinedTags += name
+	}
+
+	return " • " + tagStyle.Render(joinedTags)
 }
