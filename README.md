@@ -41,6 +41,7 @@ View daily and weekly summaries with visual breakdowns.
 
 ```bash
 # Clone the repository
+git clone <url> clockify-tui
 cd clockify-tui
 
 # Build the application
